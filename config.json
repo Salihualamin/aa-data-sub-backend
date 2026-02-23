@@ -1,5 +1,14 @@
 {
   "appName": "A’A Data Sub",
   "announcement": "Welcome to A’A Data Sub 🎉",
-  "activeVtuProvider": "none"
+  "vtu": {
+    "activeProvider": "none",
+    "providers": {
+      "smeplug": {
+        "enabled": false,
+        "apiKey": "",
+        "baseUrl": ""
+      }
+    }
+  }
 }
