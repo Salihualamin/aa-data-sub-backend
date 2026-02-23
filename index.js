@@ -3,7 +3,7 @@ const bcrypt = require("bcryptjs");
 
 const app = express();
 app.use(express.json());
-
+app.use(express.static(__dirname));
 // Admin credentials from environment variables
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
