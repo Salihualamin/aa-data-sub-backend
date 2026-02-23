@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>A’A Data Sub</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f7fa;
+      margin: 0;
+      padding: 20px;
+    }
+    h2 {
+      color: #0a58ca;
+    }
+    .popup {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      justify-content: center;
+      align-items: center;
+    }
+    .popup-content {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      max-width: 300px;
+      text-align: center;
+    }
+    .popup-content button {
+      margin-top: 15px;
+      padding: 10px;
+      width: 100%;
+      background: #0a58ca;
+      color: white;
+      border: none;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+
+<h2 id="appName">Loading...</h2>
+<p>Fast data, airtime & bills in Nigeria 🇳🇬</p>
+
+<div class="popup" id="popup">
+  <div class="popup-content">
+    <div id="announcementText"></div>
+    <button onclick="closePopup()">Okay</button>
+  </div>
+</div>
+
+<script>
+fetch("/config")
+  .then(res => res.json())
+  .then(data => {
+    document.getElementById("appName").innerText = data.appName;
+
+    if (data.announcement && data.announcement.trim() !== "") {
+      document.getElementById("announcementText").innerText = data.announcement;
+      document.getElementById("popup").style.display = "flex";
+    }
+  });
+
+function closePopup() {
+  document.getElementById("popup").style.display = "none";
+}
+</script>
+
+</body>
+</html>
