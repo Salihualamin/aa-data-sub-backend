@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>A’A Data Sub Admin Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f7fa;
+      margin: 0;
+      padding: 20px;
+    }
+    h2 {
+      color: #0a58ca;
+    }
+    .card {
+      background: white;
+      padding: 15px;
+      border-radius: 10px;
+      margin-bottom: 15px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    input, textarea, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+    button {
+      background: #0a58ca;
+      color: white;
+      border: none;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+
+<h2>Admin Dashboard</h2>
+
+<div class="card">
+  <b>App Name:</b>
+  <div id="appName">Loading...</div>
+</div>
+
+<div class="card">
+  <b>Announcement Message</b>
+  <textarea id="announcement" placeholder="Enter announcement"></textarea>
+  <button onclick="saveConfig()">Save Announcement</button>
+  <div id="msg"></div>
+</div>
+
+<script>
+  // Load config
+  fetch("/config")
+    .then(res => res.json())
+    .then(data => {
+      document.getElementById("appName").innerText = data.appName;
+      document.getElementById("announcement").value = data.announcement;
+    });
+
+  // Save config
+  function saveConfig() {
+    const announcement = document.getElementById("announcement").value;
+
+    fetch("/admin/config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ announcement })
+    })
+    .then(res => res.json())
+    .then(data => {
+      document.getElementById("msg").innerText = data.message;
+    });
+  }
+</script>
+
+</body>
+</html>
