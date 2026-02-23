@@ -36,7 +36,31 @@ app.post("/admin/login", async (req, res) => {
     role: "admin"
   });
 });
+const fs = require("fs");
+const path = require("path");
 
+const configPath = path.join(__dirname, "config.json");
+
+// Read config
+app.get("/config", (req, res) => {
+  const config = JSON.parse(fs.readFileSync(configPath));
+  res.json(config);
+});
+
+// Update config (admin only)
+app.post("/admin/config", (req, res) => {
+  const { appName, announcement, activeVtuProvider } = req.body;
+
+  const config = JSON.parse(fs.readFileSync(configPath));
+
+  if (appName) config.appName = appName;
+  if (announcement) config.announcement = announcement;
+  if (activeVtuProvider) config.activeVtuProvider = activeVtuProvider;
+
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+
+  res.json({ message: "Config updated successfully" });
+});
 // Server start
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
