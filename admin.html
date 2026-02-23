@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>A’A Data Sub Admin</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f7fa;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    .box {
+      background: white;
+      padding: 20px;
+      width: 100%;
+      max-width: 350px;
+      border-radius: 10px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    }
+    h2 {
+      text-align: center;
+      color: #0a58ca;
+    }
+    input, button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+    button {
+      background: #0a58ca;
+      color: white;
+      border: none;
+      font-size: 16px;
+    }
+    .msg {
+      margin-top: 10px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+<div class="box">
+  <h2>Admin Login</h2>
+
+  <input id="email" type="email" placeholder="Admin Email">
+  <input id="password" type="password" placeholder="Password">
+  <button onclick="login()">Login</button>
+
+  <div class="msg" id="msg"></div>
+</div>
+
+<script>
+  async function login() {
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+
+    const res = await fetch("/admin/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password })
+    });
+
+    const data = await res.json();
+
+    document.getElementById("msg").innerText = data.message || "Error";
+  }
+</script>
+
+</body>
+</html>
