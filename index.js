@@ -66,3 +66,49 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log("Server running on port " + PORT);
 });
+const fs = require("fs");
+const path = require("path");
+
+const PLANS_FILE = path.join(__dirname, "plans.json");
+
+/* Load plans */
+function loadPlans() {
+  if (!fs.existsSync(PLANS_FILE)) return [];
+  return JSON.parse(fs.readFileSync(PLANS_FILE, "utf8"));
+}
+
+/* Save plans */
+function savePlans(plans) {
+  fs.writeFileSync(PLANS_FILE, JSON.stringify(plans, null, 2));
+}
+
+/* Admin add data plan */
+app.post("/admin/add-plan", (req, res) => {
+  const { network, planName, apiCode, costPrice, sellPrice } = req.body;
+
+  if (!network || !planName || !apiCode || !costPrice || !sellPrice) {
+    return res.status(400).json({ error: "All fields are required" });
+  }
+
+  const plans = loadPlans();
+
+  const newPlan = {
+    id: Date.now().toString(),
+    network,
+    planName,
+    apiCode,
+    costPrice: Number(costPrice),
+    sellPrice: Number(sellPrice),
+    active: true
+  };
+
+  plans.push(newPlan);
+  savePlans(plans);
+
+  res.json({ success: true, plan: newPlan });
+});
+
+/* Admin view plans */
+app.get("/admin/plans", (req, res) => {
+  res.json(loadPlans());
+});
