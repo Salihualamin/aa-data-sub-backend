@@ -1,79 +1,145 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>A’A Data Sub Admin Dashboard</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8" />
+  <title>Admin Dashboard – A’A Data Sub</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     body {
-      font-family: Arial, sans-serif;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont;
       background: #f5f7fa;
       margin: 0;
       padding: 20px;
     }
-    h2 {
-      color: #0a58ca;
+    h1 {
+      color: #0b5ed7;
     }
     .card {
-      background: white;
-      padding: 15px;
-      border-radius: 10px;
-      margin-bottom: 15px;
-      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+      background: #fff;
+      padding: 16px;
+      border-radius: 12px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,.06);
     }
-    input, textarea, button {
+    input, select, button {
       width: 100%;
-      padding: 10px;
+      padding: 12px;
       margin-top: 10px;
-      border-radius: 6px;
-      border: 1px solid #ccc;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+      font-size: 15px;
     }
     button {
-      background: #0a58ca;
+      background: #0b5ed7;
       color: white;
       border: none;
-      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:hover {
+      opacity: 0.9;
+    }
+    .success {
+      color: green;
+      margin-top: 10px;
     }
   </style>
 </head>
 <body>
 
-<h2>Admin Dashboard</h2>
+  <h1>Admin Dashboard</h1>
 
-<div class="card">
-  <b>App Name:</b>
-  <div id="appName">Loading...</div>
-</div>
+  <!-- APP INFO -->
+  <div class="card">
+    <b>App Name</b>
+    <div id="appName">Loading...</div>
+  </div>
 
-<div class="card">
-  <b>Announcement Message</b>
-  <textarea id="announcement" placeholder="Enter announcement"></textarea>
-  <button onclick="saveConfig()">Save Announcement</button>
-  <div id="msg"></div>
-</div>
+  <!-- ANNOUNCEMENT -->
+  <div class="card">
+    <b>Popup Announcement</b>
+    <input id="announcementInput" placeholder="Enter popup message for users" />
+    <button onclick="saveAnnouncement()">Save Announcement</button>
+    <div id="announceMsg" class="success"></div>
+  </div>
+
+  <!-- VTU PROVIDER -->
+  <div class="card">
+    <b>VTU Provider Settings</b>
+
+    <select id="provider">
+      <option value="none">No Provider</option>
+      <option value="smeplug">SMEPlug</option>
+    </select>
+
+    <input id="apiKey" placeholder="Provider API Key" />
+    <input id="baseUrl" placeholder="Provider Base URL" />
+
+    <button onclick="saveVTU()">Save VTU Settings</button>
+    <div id="vtuMsg" class="success"></div>
+  </div>
 
 <script>
-  // Load config
-  fetch("/config")
-    .then(res => res.json())
-    .then(data => {
-      document.getElementById("appName").innerText = data.appName;
-      document.getElementById("announcement").value = data.announcement;
-    });
+/* Load config */
+fetch("/config")
+  .then(res => res.json())
+  .then(data => {
+    document.getElementById("appName").innerText = data.appName || "A’A Data Sub";
 
-  // Save config
-  function saveConfig() {
-    const announcement = document.getElementById("announcement").value;
+    if (data.announcement) {
+      document.getElementById("announcementInput").value = data.announcement;
+    }
 
-    fetch("/admin/config", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ announcement })
+    if (data.vtu) {
+      document.getElementById("provider").value = data.vtu.activeProvider || "none";
+
+      if (data.vtu.providers?.smeplug) {
+        document.getElementById("apiKey").value = data.vtu.providers.smeplug.apiKey || "";
+        document.getElementById("baseUrl").value = data.vtu.providers.smeplug.baseUrl || "";
+      }
+    }
+  });
+
+function saveAnnouncement() {
+  const announcement = document.getElementById("announcementInput").value;
+
+  fetch("/admin/config", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ announcement })
+  })
+  .then(res => res.json())
+  .then(() => {
+    document.getElementById("announceMsg").innerText = "Announcement saved";
+  });
+}
+
+function saveVTU() {
+  const provider = document.getElementById("provider").value;
+  const apiKey = document.getElementById("apiKey").value;
+  const baseUrl = document.getElementById("baseUrl").value;
+
+  fetch("/admin/config", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      vtu: {
+        activeProvider: provider,
+        providers: {
+          smeplug: {
+            enabled: provider === "smeplug",
+            apiKey,
+            baseUrl
+          }
+        }
+      }
     })
-    .then(res => res.json())
-    .then(data => {
-      document.getElementById("msg").innerText = data.message;
-    });
-  }
+  })
+  .then(res => res.json())
+  .then(() => {
+    document.getElementById("vtuMsg").innerText = "VTU settings saved";
+  });
+}
 </script>
 
 </body>
