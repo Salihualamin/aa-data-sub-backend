@@ -51,7 +51,7 @@ app.get("/", (req, res) => {
   res.send("A’A DATA SUB backend is running 🚀");
 });
 
-/* -------- ADMIN -------- */
+/* ---------- ADMIN ---------- */
 
 app.post("/admin/login", (req, res) => {
   const { email, password } = req.body;
@@ -73,7 +73,7 @@ app.get("/admin/plans", (req, res) => {
   res.json(plans);
 });
 
-/* -------- USER -------- */
+/* ---------- USER ---------- */
 
 /* Init wallet */
 app.post("/user/init-wallet", (req, res) => {
@@ -93,7 +93,7 @@ app.get("/user/wallet/:userId", (req, res) => {
   res.json({ balance: wallets[req.params.userId] || 0 });
 });
 
-/* BUY DATA — SMEPLUG */
+/* Buy data with SMEPlug */
 app.post("/user/buy-data", async (req, res) => {
   const { userId, planId, phone } = req.body;
 
@@ -117,7 +117,7 @@ app.post("/user/buy-data", async (req, res) => {
       `${SMEPLUG_BASE_URL}/data`,
       {
         network: plan.network.toLowerCase(),
-        phone,
+        phone: phone,
         plan_code: plan.apiCode
       },
       {
@@ -155,10 +155,10 @@ app.post("/user/buy-data", async (req, res) => {
       balance: wallets[userId]
     });
 
-  } catch (err) {
+  } catch (error) {
     res.status(500).json({
       error: "SMEPlug error",
-      details: err.response?.data || err.message
+      details: error.response?.data || error.message
     });
   }
 });
