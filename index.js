@@ -1,86 +1,68 @@
 const express = require("express");
+const fs = require("fs");
+const path = require("path");
 const bcrypt = require("bcryptjs");
 
 const app = express();
-app.use(express.json());
-app.use(express.static(__dirname));
-// Admin credentials from environment variables
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+const PORT = process.env.PORT || 3000;
 
-// Home route
+/* =======================
+   MIDDLEWARE
+======================= */
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static(__dirname));
+
+/* =======================
+   ADMIN CREDENTIALS
+   (FROM RENDER ENV VARS)
+======================= */
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
+const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
+
+/* =======================
+   FILE PATHS
+======================= */
+const PLANS_FILE = path.join(__dirname, "plans.json");
+
+/* =======================
+   HELPERS
+======================= */
+function loadPlans() {
+  if (!fs.existsSync(PLANS_FILE)) {
+    fs.writeFileSync(PLANS_FILE, JSON.stringify([]));
+  }
+  return JSON.parse(fs.readFileSync(PLANS_FILE, "utf8"));
+}
+
+function savePlans(plans) {
+  fs.writeFileSync(PLANS_FILE, JSON.stringify(plans, null, 2));
+}
+
+/* =======================
+   ROUTES
+======================= */
+
+/* Home check */
 app.get("/", (req, res) => {
   res.send("A’A DATA SUB backend is running 🚀");
 });
 
-// Admin login route
-app.post("/admin/login", async (req, res) => {
+/* Admin login */
+app.post("/admin/login", (req, res) => {
   const { email, password } = req.body;
 
-  if (!email || !password) {
-    return res.status(400).json({ message: "Email and password required" });
-  }
-
   if (email !== ADMIN_EMAIL) {
-    return res.status(401).json({ message: "Invalid credentials" });
+    return res.status(401).json({ error: "Invalid credentials" });
   }
 
-  const passwordMatch = password === ADMIN_PASSWORD;
-
-  if (!passwordMatch) {
-    return res.status(401).json({ message: "Invalid credentials" });
+  const valid = bcrypt.compareSync(password, ADMIN_PASSWORD_HASH);
+  if (!valid) {
+    return res.status(401).json({ error: "Invalid credentials" });
   }
 
-  res.json({
-    message: "Admin login successful",
-    role: "admin"
-  });
+  res.json({ success: true });
 });
-const fs = require("fs");
-const path = require("path");
-
-const configPath = path.join(__dirname, "config.json");
-
-// Read config
-app.get("/config", (req, res) => {
-  const config = JSON.parse(fs.readFileSync(configPath));
-  res.json(config);
-});
-
-// Update config (admin only)
-app.post("/admin/config", (req, res) => {
-  const { appName, announcement, activeVtuProvider } = req.body;
-
-  const config = JSON.parse(fs.readFileSync(configPath));
-
-  if (appName) config.appName = appName;
-  if (announcement) config.announcement = announcement;
-  if (activeVtuProvider) config.activeVtuProvider = activeVtuProvider;
-
-  fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-
-  res.json({ message: "Config updated successfully" });
-});
-// Server start
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log("Server running on port " + PORT);
-});
-const fs = require("fs");
-const path = require("path");
-
-const PLANS_FILE = path.join(__dirname, "plans.json");
-
-/* Load plans */
-function loadPlans() {
-  if (!fs.existsSync(PLANS_FILE)) return [];
-  return JSON.parse(fs.readFileSync(PLANS_FILE, "utf8"));
-}
-
-/* Save plans */
-function savePlans(plans) {
-  fs.writeFileSync(PLANS_FILE, JSON.stringify(plans, null, 2));
-}
 
 /* Admin add data plan */
 app.post("/admin/add-plan", (req, res) => {
@@ -92,7 +74,7 @@ app.post("/admin/add-plan", (req, res) => {
 
   const plans = loadPlans();
 
-  const newPlan = {
+  plans.push({
     id: Date.now().toString(),
     network,
     planName,
@@ -100,15 +82,20 @@ app.post("/admin/add-plan", (req, res) => {
     costPrice: Number(costPrice),
     sellPrice: Number(sellPrice),
     active: true
-  };
+  });
 
-  plans.push(newPlan);
   savePlans(plans);
-
-  res.json({ success: true, plan: newPlan });
+  res.json({ success: true });
 });
 
 /* Admin view plans */
 app.get("/admin/plans", (req, res) => {
   res.json(loadPlans());
+});
+
+/* =======================
+   START SERVER
+======================= */
+app.listen(PORT, () => {
+  console.log("Server running on port " + PORT);
 });
