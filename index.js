@@ -11,7 +11,13 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(__dirname));
-
+app.get("/debug-env", (req, res) => {
+  res.json({
+    adminEmailExists: !!process.env.ADMIN_EMAIL,
+    adminPasswordHashExists: !!process.env.ADMIN_PASSWORD_HASH,
+    jwtSecretExists: !!process.env.JWT_SECRET
+  });
+});
 /* ===== ENV ===== */
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
