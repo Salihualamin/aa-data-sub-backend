@@ -23,33 +23,33 @@ const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
    FILE PATHS
 ========================= */
 const PLANS_FILE = path.join(__dirname, "plans.json");
+const WALLETS_FILE = path.join(__dirname, "wallets.json");
+const SALES_FILE = path.join(__dirname, "sales.json");
 
 /* =========================
    HELPERS
 ========================= */
-function loadPlans() {
-  if (!fs.existsSync(PLANS_FILE)) {
-    fs.writeFileSync(PLANS_FILE, JSON.stringify([]));
+function readJSON(file, fallback) {
+  if (!fs.existsSync(file)) {
+    fs.writeFileSync(file, JSON.stringify(fallback, null, 2));
   }
-  return JSON.parse(fs.readFileSync(PLANS_FILE, "utf8"));
+  return JSON.parse(fs.readFileSync(file, "utf8"));
 }
 
-function savePlans(plans) {
-  fs.writeFileSync(PLANS_FILE, JSON.stringify(plans, null, 2));
+function writeJSON(file, data) {
+  fs.writeFileSync(file, JSON.stringify(data, null, 2));
 }
 
 /* =========================
    ROUTES
 ========================= */
 
-/* Health check */
 app.get("/", (req, res) => {
   res.send("A’A DATA SUB backend is running 🚀");
 });
 
 /* -------- ADMIN -------- */
 
-/* Admin login */
 app.post("/admin/login", (req, res) => {
   const { email, password } = req.body;
 
@@ -65,63 +65,68 @@ app.post("/admin/login", (req, res) => {
   res.json({ success: true });
 });
 
-/* Add data plan */
-app.post("/admin/add-plan", (req, res) => {
-  const { network, planName, apiCode, costPrice, sellPrice } = req.body;
-
-  if (!network || !planName || !apiCode || !costPrice || !sellPrice) {
-    return res.status(400).json({ error: "All fields are required" });
-  }
-
-  const plans = loadPlans();
-
-  plans.push({
-    id: Date.now().toString(),
-    network,
-    planName,
-    apiCode,
-    costPrice: Number(costPrice),
-    sellPrice: Number(sellPrice),
-    active: true
-  });
-
-  savePlans(plans);
-  res.json({ success: true });
-});
-
-/* View all plans (admin) */
 app.get("/admin/plans", (req, res) => {
-  res.json(loadPlans());
+  res.json(readJSON(PLANS_FILE, []));
 });
 
-/* -------- USERS -------- */
+/* -------- USER -------- */
 
-/* Get active plans */
-app.get("/user/plans", (req, res) => {
-  const plans = loadPlans().filter(p => p.active);
-  res.json(plans);
+/* Create wallet automatically */
+app.post("/user/init-wallet", (req, res) => {
+  const { userId } = req.body;
+  if (!userId) return res.status(400).json({ error: "Missing userId" });
+
+  const wallets = readJSON(WALLETS_FILE, {});
+  if (!wallets[userId]) wallets[userId] = 0;
+
+  writeJSON(WALLETS_FILE, wallets);
+  res.json({ balance: wallets[userId] });
 });
 
-/* Buy data (simulation for now) */
+/* Get wallet balance */
+app.get("/user/wallet/:userId", (req, res) => {
+  const wallets = readJSON(WALLETS_FILE, {});
+  res.json({ balance: wallets[req.params.userId] || 0 });
+});
+
+/* Buy data (wallet + profit) */
 app.post("/user/buy-data", (req, res) => {
-  const { planId, phone } = req.body;
-
-  if (!planId || !phone) {
+  const { userId, planId, phone } = req.body;
+  if (!userId || !planId || !phone) {
     return res.status(400).json({ error: "Missing fields" });
   }
 
-  const plans = loadPlans();
-  const plan = plans.find(p => p.id === planId);
+  const plans = readJSON(PLANS_FILE, []);
+  const wallets = readJSON(WALLETS_FILE, {});
+  const sales = readJSON(SALES_FILE, []);
 
-  if (!plan) {
-    return res.status(404).json({ error: "Plan not found" });
+  const plan = plans.find(p => p.id === planId);
+  if (!plan) return res.status(404).json({ error: "Plan not found" });
+
+  if ((wallets[userId] || 0) < plan.sellPrice) {
+    return res.status(400).json({ error: "Insufficient balance" });
   }
+
+  wallets[userId] -= plan.sellPrice;
+
+  const profit = plan.sellPrice - plan.costPrice;
+  sales.push({
+    id: Date.now().toString(),
+    userId,
+    phone,
+    plan: plan.planName,
+    amount: plan.sellPrice,
+    profit,
+    date: new Date().toISOString()
+  });
+
+  writeJSON(WALLETS_FILE, wallets);
+  writeJSON(SALES_FILE, sales);
 
   res.json({
     success: true,
-    message: `Data purchase successful for ${phone}`,
-    plan: plan.planName,
-    amount: plan.sellPrice
+    message: "Data purchase successful",
+    balance: wallets[userId]
   });
 });
 
