@@ -68,6 +68,11 @@ app.post("/admin/login", (req, res) => {
   res.json({ success: true });
 });
 
+app.get("/admin/plans", (req, res) => {
+  const plans = readJSON(PLANS_FILE, []);
+  res.json(plans);
+});
+
 /* -------- USER -------- */
 
 /* Init wallet */
@@ -88,7 +93,7 @@ app.get("/user/wallet/:userId", (req, res) => {
   res.json({ balance: wallets[req.params.userId] || 0 });
 });
 
-/* REAL DATA PURCHASE */
+/* BUY DATA — SMEPLUG */
 app.post("/user/buy-data", async (req, res) => {
   const { userId, planId, phone } = req.body;
 
