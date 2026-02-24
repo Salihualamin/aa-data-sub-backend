@@ -68,12 +68,9 @@ app.post("/admin/login", (req, res) => {
   res.json({ success: true });
 });
 
-app.get("/admin/plans", (req, res) => {
-  res.json(readJSON(PLANS_FILE, []));
-});
-
 /* -------- USER -------- */
 
+/* Init wallet */
 app.post("/user/init-wallet", (req, res) => {
   const { userId } = req.body;
   if (!userId) return res.status(400).json({ error: "Missing userId" });
@@ -83,6 +80,12 @@ app.post("/user/init-wallet", (req, res) => {
 
   writeJSON(WALLETS_FILE, wallets);
   res.json({ balance: wallets[userId] });
+});
+
+/* Get wallet balance */
+app.get("/user/wallet/:userId", (req, res) => {
+  const wallets = readJSON(WALLETS_FILE, {});
+  res.json({ balance: wallets[req.params.userId] || 0 });
 });
 
 /* REAL DATA PURCHASE */
@@ -105,7 +108,6 @@ app.post("/user/buy-data", async (req, res) => {
   }
 
   try {
-    /* SMEPLUG API CALL */
     const response = await axios.post(
       `${SMEPLUG_BASE_URL}/data`,
       {
@@ -125,9 +127,7 @@ app.post("/user/buy-data", async (req, res) => {
       return res.status(400).json({ error: "Data delivery failed" });
     }
 
-    /* Debit wallet */
     wallets[userId] -= plan.sellPrice;
-
     const profit = plan.sellPrice - plan.costPrice;
 
     sales.push({
