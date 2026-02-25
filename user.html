@@ -38,10 +38,14 @@ async function loadWallet() {
 }
 
 function render(data) {
+  const balance = data.balance ?? 0;
+  const accountNumber = data.account?.accountNumber || "—";
+  const bankName = data.account?.bankName || "—";
+
   document.getElementById("walletInfo").innerHTML = `
-    <strong>Balance:</strong> ₦${data.balance}<br><br>
-    <strong>Account Number:</strong> ${data.account?.accountNumber || "—"}<br>
-    <strong>Bank:</strong> ${data.account?.bankName || "—"}
+    <strong>Balance:</strong> ₦${balance}<br><br>
+    <strong>Account Number:</strong> ${accountNumber}<br>
+    <strong>Bank:</strong> ${bankName}
   `;
 }
 
