@@ -1,51 +1,32 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <title>Admin Dashboard – A’A Data Sub</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>A’A Data Sub – Admin Dashboard</title>
   <style>
-    body {
-      font-family: system-ui;
-      background: #f5f7fa;
-      padding: 20px;
-    }
-    h1 { color: #0b5ed7; }
-    .card {
-      background: #fff;
-      padding: 16px;
-      border-radius: 12px;
-      margin-bottom: 16px;
-      box-shadow: 0 4px 12px rgba(0,0,0,.06);
-    }
+    body { font-family: Arial; background:#f4f6f8; padding:20px; }
+    h2 { margin-bottom:10px; }
+    .card { background:#fff; padding:20px; border-radius:8px; margin-bottom:20px; }
     input, select, button {
-      width: 100%;
-      padding: 12px;
-      margin-top: 8px;
-      border-radius: 8px;
-      border: 1px solid #ddd;
+      width:100%; padding:10px; margin-top:10px;
     }
     button {
-      background: #0b5ed7;
-      color: white;
-      border: none;
-      font-weight: bold;
+      background:#0a7cff; color:#fff; border:none; cursor:pointer;
     }
-    .success { color: green; margin-top: 10px; }
-    .plan {
-      border-bottom: 1px solid #eee;
-      padding: 10px 0;
+    table {
+      width:100%; border-collapse:collapse; margin-top:20px;
     }
+    th, td {
+      border:1px solid #ddd; padding:8px; text-align:left;
+    }
+    th { background:#eee; }
   </style>
 </head>
 <body>
 
-<h1>Admin Dashboard</h1>
+<h2>Admin Dashboard – Data Plans</h2>
 
-<!-- ADD DATA PLAN -->
 <div class="card">
-  <b>Add Data Plan</b>
-
+  <h3>Add Data Plan</h3>
   <select id="network">
     <option value="">Select Network</option>
     <option>MTN</option>
@@ -53,60 +34,66 @@
     <option>Glo</option>
     <option>9mobile</option>
   </select>
-
-  <input id="planName" placeholder="Plan Name (e.g MTN 1GB SME)" />
-  <input id="apiCode" placeholder="SMEPlug API Code" />
-  <input id="costPrice" type="number" placeholder="Cost Price (₦)" />
-  <input id="sellPrice" type="number" placeholder="Selling Price (₦)" />
-
-  <button onclick="addPlan()">Save Plan</button>
-  <div id="msg" class="success"></div>
+  <input id="planName" placeholder="Plan Name (e.g. 1GB SME)">
+  <input id="price" type="number" placeholder="Selling Price">
+  <input id="apiCode" placeholder="API Code (from provider)">
+  <button onclick="addPlan()">Add Plan</button>
 </div>
 
-<!-- VIEW PLANS -->
 <div class="card">
-  <b>Existing Data Plans</b>
-  <div id="plans"></div>
+  <h3>Existing Plans</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Network</th>
+        <th>Plan</th>
+        <th>Price</th>
+        <th>API Code</th>
+      </tr>
+    </thead>
+    <tbody id="plans"></tbody>
+  </table>
 </div>
 
 <script>
-function addPlan() {
-  const data = {
-    network: network.value,
-    planName: planName.value,
-    apiCode: apiCode.value,
-    costPrice: costPrice.value,
-    sellPrice: sellPrice.value
-  };
+async function addPlan() {
+  const network = document.getElementById("network").value;
+  const planName = document.getElementById("planName").value;
+  const price = document.getElementById("price").value;
+  const apiCode = document.getElementById("apiCode").value;
 
-  fetch("/admin/add-plan", {
+  const res = await fetch("/admin/plans", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data)
-  })
-  .then(res => res.json())
-  .then(() => {
-    msg.innerText = "Plan added successfully";
-    loadPlans();
+    body: JSON.stringify({ network, planName, price, apiCode })
   });
+
+  const data = await res.json();
+  if (data.success) {
+    alert("Plan added");
+    loadPlans();
+  } else {
+    alert(data.error);
+  }
 }
 
-function loadPlans() {
-  fetch("/admin/plans")
-    .then(res => res.json())
-    .then(plans => {
-      plansDiv = document.getElementById("plans");
-      plansDiv.innerHTML = "";
+async function loadPlans() {
+  const res = await fetch("/admin/plans");
+  const plans = await res.json();
 
-      plans.forEach(p => {
-        plansDiv.innerHTML += `
-          <div class="plan">
-            <b>${p.network}</b> — ${p.planName}<br>
-            Cost: ₦${p.costPrice} | Sell: ₦${p.sellPrice}
-          </div>
-        `;
-      });
-    });
+  const tbody = document.getElementById("plans");
+  tbody.innerHTML = "";
+
+  plans.forEach(p => {
+    tbody.innerHTML += `
+      <tr>
+        <td>${p.network}</td>
+        <td>${p.planName}</td>
+        <td>₦${p.price}</td>
+        <td>${p.apiCode}</td>
+      </tr>
+    `;
+  });
 }
 
 loadPlans();
