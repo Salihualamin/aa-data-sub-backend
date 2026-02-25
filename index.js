@@ -25,14 +25,14 @@ const ADMIN_EMAIL = "admin@aadatasub.com";
 const ADMIN_PASSWORD = "Admin1234";
 
 app.post("/admin/login", (req, res) => {
-  const { email, password } = req.body;
+  const { email, password };
   if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
     return res.json({ success: true });
   }
   res.status(401).json({ error: "Invalid credentials" });
 });
 
-/* ---------- INIT USER WALLET (MOCK ACCOUNT) ---------- */
+/* ---------- INIT USER WALLET ---------- */
 app.post("/user/init-wallet", (req, res) => {
   const { userId } = req.body;
   if (!userId) return res.status(400).json({ error: "Missing userId" });
@@ -43,7 +43,7 @@ app.post("/user/init-wallet", (req, res) => {
     wallets[userId] = {
       balance: 0,
       account: {
-        accountNumber: "31" + Math.floor(Math.random() * 100000000),
+        accountNumber: "31" + Math.floor(100000000 + Math.random() * 900000000),
         bankName: "Wema Bank"
       }
     };
@@ -56,7 +56,16 @@ app.post("/user/init-wallet", (req, res) => {
 /* ---------- GET WALLET ---------- */
 app.get("/user/wallet/:userId", (req, res) => {
   const wallets = readJSON(WALLETS_FILE, {});
-  res.json(wallets[req.params.userId] || { balance: 0 });
+  const wallet = wallets[req.params.userId];
+
+  if (!wallet) {
+    return res.json({
+      balance: 0,
+      account: null
+    });
+  }
+
+  res.json(wallet);
 });
 
 /* ---------- SERVER ---------- */
