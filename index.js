@@ -123,7 +123,89 @@ app.post("/user/buy-data", (req, res) => {
     balance: wallets[userId].balance
   });
 });
+app.post("/user/buy-data", async (req, res) => {
+  try {
+    const { userId, planId, phone } = req.body;
 
+    const wallets = readJSON(WALLETS_FILE, {});
+    const plans = readJSON(PLANS_FILE, []);
+    const sales = readJSON(SALES_FILE, []);
+
+    const plan = plans.find(p => p.id === planId);
+    if (!plan) {
+      return res.status(400).json({ error: "Invalid plan" });
+    }
+
+    if (!wallets[userId] || wallets[userId] < plan.sellPrice) {
+      return res.status(400).json({ error: "Insufficient wallet balance" });
+    }
+
+    // 🔥 LOG BEFORE SMEPLUG CALL
+    console.log("🚀 Sending to SMEPlug:", {
+      network: plan.network,
+      phone,
+      apiCode: plan.apiCode
+    });
+
+    // ✅ REAL SMEPLUG API CALL
+    const smeplugRes = await axios.post(
+      `${process.env.SMEPLUG_BASE_URL}/api/data`,
+      {
+        network: plan.network.toLowerCase(),
+        phone: phone,
+        plan_code: plan.apiCode
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.SMEPLUG_API_KEY}`,
+          "Content-Type": "application/json"
+        }
+      }
+    );
+
+    // 🔥 LOG SMEPLUG RESPONSE
+    console.log("✅ SMEPlug response:", smeplugRes.data);
+
+    if (smeplugRes.data.status !== "success") {
+      return res.status(400).json({
+        error: "SMEPlug failed",
+        details: smeplugRes.data
+      });
+    }
+
+    // 💰 DEDUCT WALLET AFTER SUCCESS
+    wallets[userId] -= plan.sellPrice;
+
+    const profit = plan.sellPrice - plan.costPrice;
+
+    sales.push({
+      id: Date.now().toString(),
+      userId,
+      phone,
+      plan: plan.planName,
+      amount: plan.sellPrice,
+      profit,
+      reference: smeplugRes.data.reference,
+      date: new Date().toISOString()
+    });
+
+    writeJSON(WALLETS_FILE, wallets);
+    writeJSON(SALES_FILE, sales);
+
+    res.json({
+      success: true,
+      message: "Data purchase successful",
+      balance: wallets[userId]
+    });
+
+  } catch (error) {
+    console.error("❌ SMEPlug error:", error.response?.data || error.message);
+    res.status(500).json({
+      error: "SMEPlug error",
+      details: error.response?.data || error.message
+    });
+  }
+});
 /* ---------- SERVER ---------- */
 app.listen(PORT, () => {
   console.log("A’A DATA SUB backend running 🚀");
