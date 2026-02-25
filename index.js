@@ -1,7 +1,6 @@
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
-const axios = require("axios");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -33,37 +32,22 @@ app.post("/admin/login", (req, res) => {
   res.status(401).json({ error: "Invalid credentials" });
 });
 
-/* ---------- INIT USER WALLET + ASPIFY ACCOUNT ---------- */
-app.post("/user/init-wallet", async (req, res) => {
-  const { userId, name, email } = req.body;
+/* ---------- INIT USER WALLET (MOCK ACCOUNT) ---------- */
+app.post("/user/init-wallet", (req, res) => {
+  const { userId } = req.body;
   if (!userId) return res.status(400).json({ error: "Missing userId" });
 
   const wallets = readJSON(WALLETS_FILE, {});
 
   if (!wallets[userId]) {
-    try {
-      const aspifyRes = await axios.post(
-        `${process.env.ASPIFY_BASE_URL}/virtual-account`,
-        {
-          name,
-          email
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${process.env.ASPIFY_SECRET_KEY}`
-          }
-        }
-      );
-
-      wallets[userId] = {
-        balance: 0,
-        account: aspifyRes.data
-      };
-
-      writeJSON(WALLETS_FILE, wallets);
-    } catch (err) {
-      return res.status(500).json({ error: "Aspify account error" });
-    }
+    wallets[userId] = {
+      balance: 0,
+      account: {
+        accountNumber: "31" + Math.floor(Math.random() * 100000000),
+        bankName: "Wema Bank"
+      }
+    };
+    writeJSON(WALLETS_FILE, wallets);
   }
 
   res.json(wallets[userId]);
@@ -73,19 +57,6 @@ app.post("/user/init-wallet", async (req, res) => {
 app.get("/user/wallet/:userId", (req, res) => {
   const wallets = readJSON(WALLETS_FILE, {});
   res.json(wallets[req.params.userId] || { balance: 0 });
-});
-
-/* ---------- ASPIFY WEBHOOK ---------- */
-app.post("/webhook/aspify", (req, res) => {
-  const { userId, amount } = req.body;
-
-  const wallets = readJSON(WALLETS_FILE, {});
-  if (!wallets[userId]) return res.sendStatus(404);
-
-  wallets[userId].balance += Number(amount);
-  writeJSON(WALLETS_FILE, wallets);
-
-  res.sendStatus(200);
 });
 
 /* ---------- SERVER ---------- */
