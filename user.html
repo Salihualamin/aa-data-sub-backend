@@ -1,90 +1,90 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <title>A’A Data Sub</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>A’A Data Sub – Buy Data</title>
   <style>
     body {
-      font-family: system-ui;
-      background: #f4f6fb;
-      padding: 16px;
+      font-family: Arial;
+      background: #f4f6f8;
+      padding: 20px;
     }
-    h1 {
-      color: #0b5ed7;
+    h2 {
+      margin-bottom: 10px;
     }
-    .card {
+    .network {
+      margin-bottom: 30px;
+    }
+    .plan {
       background: #fff;
-      padding: 16px;
-      border-radius: 14px;
-      margin-bottom: 16px;
-      box-shadow: 0 6px 14px rgba(0,0,0,.06);
-    }
-    select, input, button {
-      width: 100%;
-      padding: 12px;
-      margin-top: 10px;
+      padding: 15px;
       border-radius: 8px;
-      border: 1px solid #ddd;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
     button {
-      background: #0b5ed7;
-      color: white;
+      background: #0a7cff;
+      color: #fff;
       border: none;
-      font-weight: bold;
-    }
-    .success {
-      color: green;
-      margin-top: 10px;
+      padding: 8px 15px;
+      cursor: pointer;
+      border-radius: 5px;
     }
   </style>
 </head>
 <body>
 
-<h1>Buy Data</h1>
+<h2>Buy Data</h2>
 
-<div class="card">
-  <select id="planSelect">
-    <option value="">Select Data Plan</option>
-  </select>
-
-  <input id="phone" placeholder="Enter phone number" />
-
-  <button onclick="buyData()">Buy Data</button>
-
-  <div id="msg" class="success"></div>
-</div>
+<div id="plansContainer">Loading data plans…</div>
 
 <script>
-let plans = [];
+async function loadPlans() {
+  const res = await fetch("/admin/plans");
+  const plans = await res.json();
 
-fetch("/user/plans")
-  .then(res => res.json())
-  .then(data => {
-    plans = data;
-    const select = document.getElementById("planSelect");
-    data.forEach(p => {
-      const opt = document.createElement("option");
-      opt.value = p.id;
-      opt.textContent = `${p.network} - ${p.planName} (₦${p.sellPrice})`;
-      select.appendChild(opt);
+  const container = document.getElementById("plansContainer");
+  container.innerHTML = "";
+
+  if (!plans.length) {
+    container.innerHTML = "No data plans available";
+    return;
+  }
+
+  const grouped = {};
+
+  plans.forEach(p => {
+    if (!grouped[p.network]) grouped[p.network] = [];
+    grouped[p.network].push(p);
+  });
+
+  for (const network in grouped) {
+    const div = document.createElement("div");
+    div.className = "network";
+    div.innerHTML = `<h3>${network}</h3>`;
+
+    grouped[network].forEach(p => {
+      div.innerHTML += `
+        <div class="plan">
+          <div>
+            <strong>${p.planName}</strong><br>
+            ₦${p.price}
+          </div>
+          <button onclick="selectPlan('${p.id}')">Buy</button>
+        </div>
+      `;
     });
-  });
 
-function buyData() {
-  const planId = planSelect.value;
-  const phone = document.getElementById("phone").value;
-
-  fetch("/user/buy-data", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ planId, phone })
-  })
-  .then(res => res.json())
-  .then(data => {
-    msg.innerText = data.message || "Success";
-  });
+    container.appendChild(div);
+  }
 }
+
+function selectPlan(planId) {
+  alert("Selected plan ID: " + planId + "\n(Next step: wallet & purchase)");
+}
+
+loadPlans();
 </script>
 
 </body>
