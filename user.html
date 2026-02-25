@@ -1,90 +1,55 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>A’A Data Sub – Buy Data</title>
+  <title>A’A Data Sub – Wallet</title>
   <style>
-    body {
-      font-family: Arial;
-      background: #f4f6f8;
-      padding: 20px;
-    }
-    h2 {
-      margin-bottom: 10px;
-    }
-    .network {
-      margin-bottom: 30px;
-    }
-    .plan {
-      background: #fff;
-      padding: 15px;
-      border-radius: 8px;
-      margin-bottom: 10px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    button {
-      background: #0a7cff;
-      color: #fff;
-      border: none;
-      padding: 8px 15px;
-      cursor: pointer;
-      border-radius: 5px;
-    }
+    body { font-family: Arial; background:#f4f6f8; padding:20px; }
+    .card { background:#fff; padding:20px; border-radius:8px; }
+    button { padding:10px; margin-top:10px; background:#0a7cff; color:#fff; border:none; }
   </style>
 </head>
 <body>
 
-<h2>Buy Data</h2>
+<h2>User Wallet</h2>
 
-<div id="plansContainer">Loading data plans…</div>
+<div class="card">
+  <div id="walletInfo">Loading…</div>
+  <button onclick="initWallet()">Create / Get Wallet</button>
+</div>
 
 <script>
-async function loadPlans() {
-  const res = await fetch("/admin/plans");
-  const plans = await res.json();
+const userId = "testuser1";
 
-  const container = document.getElementById("plansContainer");
-  container.innerHTML = "";
-
-  if (!plans.length) {
-    container.innerHTML = "No data plans available";
-    return;
-  }
-
-  const grouped = {};
-
-  plans.forEach(p => {
-    if (!grouped[p.network]) grouped[p.network] = [];
-    grouped[p.network].push(p);
+async function initWallet() {
+  const res = await fetch("/user/init-wallet", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      userId,
+      name: "Test User",
+      email: "test@user.com"
+    })
   });
 
-  for (const network in grouped) {
-    const div = document.createElement("div");
-    div.className = "network";
-    div.innerHTML = `<h3>${network}</h3>`;
-
-    grouped[network].forEach(p => {
-      div.innerHTML += `
-        <div class="plan">
-          <div>
-            <strong>${p.planName}</strong><br>
-            ₦${p.price}
-          </div>
-          <button onclick="selectPlan('${p.id}')">Buy</button>
-        </div>
-      `;
-    });
-
-    container.appendChild(div);
-  }
+  const data = await res.json();
+  render(data);
 }
 
-function selectPlan(planId) {
-  alert("Selected plan ID: " + planId + "\n(Next step: wallet & purchase)");
+async function loadWallet() {
+  const res = await fetch(`/user/wallet/${userId}`);
+  const data = await res.json();
+  render(data);
 }
 
-loadPlans();
+function render(data) {
+  document.getElementById("walletInfo").innerHTML = `
+    <strong>Balance:</strong> ₦${data.balance || 0}<br><br>
+    <strong>Account Number:</strong> ${data.account?.accountNumber || "—"}<br>
+    <strong>Bank:</strong> ${data.account?.bankName || "—"}
+  `;
+}
+
+loadWallet();
 </script>
 
 </body>
