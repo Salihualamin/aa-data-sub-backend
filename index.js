@@ -1,7 +1,6 @@
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
-const bcrypt = require("bcryptjs");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -30,32 +29,18 @@ app.get("/", (req, res) => {
   res.send("A’A DATA SUB backend is running 🚀");
 });
 
-/* ---------- ADMIN LOGIN ---------- */
-app.post("/admin/login", async (req, res) => {
-  try {
-    const { email, password } = req.body;
+/* ---------- ADMIN LOGIN (PLAIN) ---------- */
+const ADMIN_EMAIL = "admin@aadatasub.com";
+const ADMIN_PASSWORD = "Admin1234";
 
-    if (!email || !password) {
-      return res.status(400).json({ error: "Missing credentials" });
-    }
+app.post("/admin/login", (req, res) => {
+  const { email, password } = req.body;
 
-    if (email !== process.env.ADMIN_EMAIL) {
-      return res.status(401).json({ error: "Invalid credentials" });
-    }
-
-    const ok = await bcrypt.compare(
-      password,
-      process.env.ADMIN_PASSWORD_HASH
-    );
-
-    if (!ok) {
-      return res.status(401).json({ error: "Invalid credentials" });
-    }
-
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: "Server error" });
+  if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+    return res.json({ success: true });
   }
+
+  return res.status(401).json({ error: "Invalid credentials" });
 });
 
 /* ---------- ADMIN PLANS ---------- */
@@ -65,11 +50,10 @@ app.get("/admin/plans", (req, res) => {
 
 app.post("/admin/plans", (req, res) => {
   const plans = readJSON(PLANS_FILE, []);
-  const newPlan = {
+  plans.push({
     id: Date.now().toString(),
     ...req.body
-  };
-  plans.push(newPlan);
+  });
   writeJSON(PLANS_FILE, plans);
   res.json({ success: true });
 });
@@ -93,5 +77,5 @@ app.get("/user/wallet/:userId", (req, res) => {
 
 /* ---------- START SERVER ---------- */
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log("Server running on port " + PORT);
 });
