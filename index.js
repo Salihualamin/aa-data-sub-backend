@@ -38,6 +38,26 @@ app.get("/admin/plans", (req, res) => {
   res.json(readJSON(PLANS_FILE, []));
 });
 
+app.post("/admin/plans", (req, res) => {
+  const { network, planName, price, apiCode } = req.body;
+
+  if (!network || !planName || !price || !apiCode) {
+    return res.status(400).json({ error: "All fields are required" });
+  }
+
+  const plans = readJSON(PLANS_FILE, []);
+  plans.push({
+    id: Date.now().toString(),
+    network,
+    planName,
+    price: Number(price),
+    apiCode
+  });
+
+  writeJSON(PLANS_FILE, plans);
+  res.json({ success: true });
+});
+
 /* ---------- INIT WALLET ---------- */
 app.post("/user/init-wallet", (req, res) => {
   const { userId } = req.body;
@@ -66,8 +86,9 @@ app.get("/user/wallet/:userId", (req, res) => {
 /* ---------- BUY DATA (MOCK) ---------- */
 app.post("/user/buy-data", (req, res) => {
   const { userId, planId, phone } = req.body;
-  if (!userId || !planId || !phone)
+  if (!userId || !planId || !phone) {
     return res.status(400).json({ error: "Missing fields" });
+  }
 
   const plans = readJSON(PLANS_FILE, []);
   const wallets = readJSON(WALLETS_FILE, {});
