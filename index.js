@@ -25,10 +25,12 @@ const ADMIN_EMAIL = "admin@aadatasub.com";
 const ADMIN_PASSWORD = "Admin1234";
 
 app.post("/admin/login", (req, res) => {
-  const { email, password };
+  const { email, password } = req.body;
+
   if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
     return res.json({ success: true });
   }
+
   res.status(401).json({ error: "Invalid credentials" });
 });
 
