@@ -8,14 +8,15 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.static(__dirname));
 
+const PLANS_FILE = path.join(__dirname, "plans.json");
 const WALLETS_FILE = path.join(__dirname, "wallets.json");
+const TX_FILE = path.join(__dirname, "transactions.json");
 
 /* ---------- HELPERS ---------- */
 function readJSON(file, fallback) {
   if (!fs.existsSync(file)) return fallback;
   return JSON.parse(fs.readFileSync(file, "utf8"));
 }
-
 function writeJSON(file, data) {
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
 }
@@ -26,24 +27,26 @@ const ADMIN_PASSWORD = "Admin1234";
 
 app.post("/admin/login", (req, res) => {
   const { email, password } = req.body;
-
   if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
     return res.json({ success: true });
   }
-
   res.status(401).json({ error: "Invalid credentials" });
 });
 
-/* ---------- INIT USER WALLET ---------- */
+/* ---------- ADMIN PLANS ---------- */
+app.get("/admin/plans", (req, res) => {
+  res.json(readJSON(PLANS_FILE, []));
+});
+
+/* ---------- INIT WALLET ---------- */
 app.post("/user/init-wallet", (req, res) => {
   const { userId } = req.body;
   if (!userId) return res.status(400).json({ error: "Missing userId" });
 
   const wallets = readJSON(WALLETS_FILE, {});
-
   if (!wallets[userId]) {
     wallets[userId] = {
-      balance: 0,
+      balance: 1000, // demo credit
       account: {
         accountNumber: "31" + Math.floor(100000000 + Math.random() * 900000000),
         bankName: "Wema Bank"
@@ -51,23 +54,53 @@ app.post("/user/init-wallet", (req, res) => {
     };
     writeJSON(WALLETS_FILE, wallets);
   }
-
   res.json(wallets[userId]);
 });
 
 /* ---------- GET WALLET ---------- */
 app.get("/user/wallet/:userId", (req, res) => {
   const wallets = readJSON(WALLETS_FILE, {});
-  const wallet = wallets[req.params.userId];
+  res.json(wallets[req.params.userId] || { balance: 0 });
+});
 
-  if (!wallet) {
-    return res.json({
-      balance: 0,
-      account: null
-    });
+/* ---------- BUY DATA (MOCK) ---------- */
+app.post("/user/buy-data", (req, res) => {
+  const { userId, planId, phone } = req.body;
+  if (!userId || !planId || !phone)
+    return res.status(400).json({ error: "Missing fields" });
+
+  const plans = readJSON(PLANS_FILE, []);
+  const wallets = readJSON(WALLETS_FILE, {});
+  const txs = readJSON(TX_FILE, []);
+
+  const plan = plans.find(p => p.id === planId);
+  if (!plan) return res.status(404).json({ error: "Plan not found" });
+
+  if (!wallets[userId] || wallets[userId].balance < plan.price) {
+    return res.status(400).json({ error: "Insufficient balance" });
   }
 
-  res.json(wallet);
+  wallets[userId].balance -= plan.price;
+
+  txs.push({
+    id: Date.now().toString(),
+    userId,
+    phone,
+    network: plan.network,
+    plan: plan.planName,
+    amount: plan.price,
+    status: "SUCCESS",
+    date: new Date().toISOString()
+  });
+
+  writeJSON(WALLETS_FILE, wallets);
+  writeJSON(TX_FILE, txs);
+
+  res.json({
+    success: true,
+    message: "Data purchase successful",
+    balance: wallets[userId].balance
+  });
 });
 
 /* ---------- SERVER ---------- */
