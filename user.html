@@ -24,11 +24,7 @@ async function initWallet() {
   const res = await fetch("/user/init-wallet", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      userId,
-      name: "Test User",
-      email: "test@user.com"
-    })
+    body: JSON.stringify({ userId })
   });
 
   const data = await res.json();
@@ -43,7 +39,7 @@ async function loadWallet() {
 
 function render(data) {
   document.getElementById("walletInfo").innerHTML = `
-    <strong>Balance:</strong> ₦${data.balance || 0}<br><br>
+    <strong>Balance:</strong> ₦${data.balance}<br><br>
     <strong>Account Number:</strong> ${data.account?.accountNumber || "—"}<br>
     <strong>Bank:</strong> ${data.account?.bankName || "—"}
   `;
