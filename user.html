@@ -1,55 +1,62 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>A’A Data Sub – Wallet</title>
+  <title>A’A Data Sub – Buy Data</title>
   <style>
     body { font-family: Arial; background:#f4f6f8; padding:20px; }
-    .card { background:#fff; padding:20px; border-radius:8px; }
-    button { padding:10px; margin-top:10px; background:#0a7cff; color:#fff; border:none; }
+    .card { background:#fff; padding:15px; border-radius:8px; margin-bottom:15px; }
+    button { background:#0a7cff; color:#fff; border:none; padding:8px 15px; }
+    input, select { width:100%; padding:8px; margin-top:8px; }
   </style>
 </head>
 <body>
 
-<h2>User Wallet</h2>
+<h2>Buy Data</h2>
+
+<div class="card" id="wallet">Loading wallet…</div>
 
 <div class="card">
-  <div id="walletInfo">Loading…</div>
-  <button onclick="initWallet()">Create / Get Wallet</button>
+  <select id="plan"></select>
+  <input id="phone" placeholder="Phone number">
+  <button onclick="buyData()">Buy Data</button>
 </div>
 
 <script>
 const userId = "testuser1";
 
-async function initWallet() {
-  const res = await fetch("/user/init-wallet", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId })
-  });
-
-  const data = await res.json();
-  render(data);
-}
-
 async function loadWallet() {
   const res = await fetch(`/user/wallet/${userId}`);
   const data = await res.json();
-  render(data);
+  document.getElementById("wallet").innerHTML =
+    `<strong>Balance:</strong> ₦${data.balance}`;
 }
 
-function render(data) {
-  const balance = data.balance ?? 0;
-  const accountNumber = data.account?.accountNumber || "—";
-  const bankName = data.account?.bankName || "—";
+async function loadPlans() {
+  const res = await fetch("/admin/plans");
+  const plans = await res.json();
+  const select = document.getElementById("plan");
+  select.innerHTML = plans.map(p =>
+    `<option value="${p.id}">${p.network} - ${p.planName} (₦${p.price})</option>`
+  ).join("");
+}
 
-  document.getElementById("walletInfo").innerHTML = `
-    <strong>Balance:</strong> ₦${balance}<br><br>
-    <strong>Account Number:</strong> ${accountNumber}<br>
-    <strong>Bank:</strong> ${bankName}
-  `;
+async function buyData() {
+  const planId = document.getElementById("plan").value;
+  const phone = document.getElementById("phone").value;
+
+  const res = await fetch("/user/buy-data", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, planId, phone })
+  });
+
+  const data = await res.json();
+  alert(data.message || data.error);
+  loadWallet();
 }
 
 loadWallet();
+loadPlans();
 </script>
 
 </body>
