@@ -193,12 +193,23 @@ const smeplugRes = await axios.post(
 
     writeJSON(WALLETS_FILE, wallets);
     writeJSON(TX_FILE, txs);
-
-    res.json({
-      success: true,
-      message: "Data purchase successful",
-      balance: wallets[userId].balance
-    });
+res.json({
+  success: true,
+  message: "Data purchase successful",
+  receipt: {
+    appName: "A’A DATA SUB",
+    network: plan.network,
+    plan: plan.planName,
+    phone: phone,
+    amount: plan.price,
+    reference: smeplugRes?.data?.reference || "LOCAL-" + Date.now(),
+    date: new Date().toLocaleString("en-NG", {
+      timeZone: "Africa/Lagos"
+    })
+  },
+  balance: wallets[userId].balance
+});
+    
 
   } catch (err) {
     console.error("❌ Buy data error:", err.message);
