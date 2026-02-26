@@ -1,6 +1,7 @@
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
+const axios = require("axios");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -8,6 +9,7 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.static(__dirname));
 
+/* ---------- FILES ---------- */
 const PLANS_FILE = path.join(__dirname, "plans.json");
 const WALLETS_FILE = path.join(__dirname, "wallets.json");
 const TX_FILE = path.join(__dirname, "transactions.json");
@@ -17,6 +19,7 @@ function readJSON(file, fallback) {
   if (!fs.existsSync(file)) return fallback;
   return JSON.parse(fs.readFileSync(file, "utf8"));
 }
+
 function writeJSON(file, data) {
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
 }
@@ -64,6 +67,7 @@ app.post("/user/init-wallet", (req, res) => {
   if (!userId) return res.status(400).json({ error: "Missing userId" });
 
   const wallets = readJSON(WALLETS_FILE, {});
+
   if (!wallets[userId]) {
     wallets[userId] = {
       balance: 1000, // demo credit
@@ -74,6 +78,7 @@ app.post("/user/init-wallet", (req, res) => {
     };
     writeJSON(WALLETS_FILE, wallets);
   }
+
   res.json(wallets[userId]);
 });
 
@@ -83,76 +88,42 @@ app.get("/user/wallet/:userId", (req, res) => {
   res.json(wallets[req.params.userId] || { balance: 0 });
 });
 
-/* ---------- BUY DATA (MOCK) ---------- */
-app.post("/user/buy-data", (req, res) => {
-  const { userId, planId, phone } = req.body;
-  if (!userId || !planId || !phone) {
-    return res.status(400).json({ error: "Missing fields" });
-  }
-
-  const plans = readJSON(PLANS_FILE, []);
-  const wallets = readJSON(WALLETS_FILE, {});
-  const txs = readJSON(TX_FILE, []);
-
-  const plan = plans.find(p => p.id === planId);
-  if (!plan) return res.status(404).json({ error: "Plan not found" });
-
-  if (!wallets[userId] || wallets[userId].balance < plan.price) {
-    return res.status(400).json({ error: "Insufficient balance" });
-  }
-
-  wallets[userId].balance -= plan.price;
-
-  txs.push({
-    id: Date.now().toString(),
-    userId,
-    phone,
-    network: plan.network,
-    plan: plan.planName,
-    amount: plan.price,
-    status: "SUCCESS",
-    date: new Date().toISOString()
-  });
-
-  writeJSON(WALLETS_FILE, wallets);
-  writeJSON(TX_FILE, txs);
-
-  res.json({
-    success: true,
-    message: "Data purchase successful",
-    balance: wallets[userId].balance
-  });
-});
+/* ---------- BUY DATA (SAFE VERSION) ---------- */
 app.post("/user/buy-data", async (req, res) => {
   try {
     const { userId, planId, phone } = req.body;
+    if (!userId || !planId || !phone) {
+      return res.status(400).json({ error: "Missing fields" });
+    }
 
     const wallets = readJSON(WALLETS_FILE, {});
     const plans = readJSON(PLANS_FILE, []);
-    const sales = readJSON(SALES_FILE, []);
+    const txs = readJSON(TX_FILE, []);
 
     const plan = plans.find(p => p.id === planId);
     if (!plan) {
-      return res.status(400).json({ error: "Invalid plan" });
+      return res.status(404).json({ error: "Plan not found" });
     }
 
-    if (!wallets[userId] || wallets[userId] < plan.sellPrice) {
-      return res.status(400).json({ error: "Insufficient wallet balance" });
+    if (!wallets[userId] || wallets[userId].balance < plan.price) {
+      return res.status(400).json({ error: "Insufficient balance" });
     }
 
-    // 🔥 LOG BEFORE SMEPLUG CALL
-    console.log("🚀 Sending to SMEPlug:", {
+    /* 🔥 SMEPLUG PLACEHOLDER (LOG ONLY) */
+    console.log("🚀 Sending to SMEPlug (TEST MODE)", {
       network: plan.network,
       phone,
       apiCode: plan.apiCode
     });
 
-    // ✅ REAL SMEPLUG API CALL
+    /*
+    ===== REAL SMEPLUG CALL (ENABLE LATER) =====
+
     const smeplugRes = await axios.post(
       `${process.env.SMEPLUG_BASE_URL}/api/data`,
       {
         network: plan.network.toLowerCase(),
-        phone: phone,
+        phone,
         plan_code: plan.apiCode
       },
       {
@@ -163,49 +134,40 @@ app.post("/user/buy-data", async (req, res) => {
       }
     );
 
-    // 🔥 LOG SMEPLUG RESPONSE
-    console.log("✅ SMEPlug response:", smeplugRes.data);
-
     if (smeplugRes.data.status !== "success") {
-      return res.status(400).json({
-        error: "SMEPlug failed",
-        details: smeplugRes.data
-      });
+      return res.status(400).json({ error: "SMEPlug failed" });
     }
+    */
 
-    // 💰 DEDUCT WALLET AFTER SUCCESS
-    wallets[userId] -= plan.sellPrice;
+    /* 💰 DEDUCT WALLET */
+    wallets[userId].balance -= plan.price;
 
-    const profit = plan.sellPrice - plan.costPrice;
-
-    sales.push({
+    txs.push({
       id: Date.now().toString(),
       userId,
       phone,
+      network: plan.network,
       plan: plan.planName,
-      amount: plan.sellPrice,
-      profit,
-      reference: smeplugRes.data.reference,
+      amount: plan.price,
+      status: "SUCCESS",
       date: new Date().toISOString()
     });
 
     writeJSON(WALLETS_FILE, wallets);
-    writeJSON(SALES_FILE, sales);
+    writeJSON(TX_FILE, txs);
 
     res.json({
       success: true,
       message: "Data purchase successful",
-      balance: wallets[userId]
+      balance: wallets[userId].balance
     });
 
-  } catch (error) {
-    console.error("❌ SMEPlug error:", error.response?.data || error.message);
-    res.status(500).json({
-      error: "SMEPlug error",
-      details: error.response?.data || error.message
-    });
+  } catch (err) {
+    console.error("❌ Buy data error:", err.message);
+    res.status(500).json({ error: "Server error" });
   }
 });
+
 /* ---------- SERVER ---------- */
 app.listen(PORT, () => {
   console.log("A’A DATA SUB backend running 🚀");
