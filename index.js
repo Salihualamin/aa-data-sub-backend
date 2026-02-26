@@ -125,11 +125,39 @@ app.post("/user/buy-data", async (req, res) => {
     }
 
     /* 🔥 SMEPLUG PLACEHOLDER (LOG ONLY) */
-    console.log("🚀 Sending to SMEPlug (TEST MODE)", {
-      network: plan.network,
-      phone,
-      apiCode: plan.apiCode
-    });
+    // 🚀 SEND TO SMEPLUG (LIVE)
+console.log("🚀 Sending to SMEPlug (LIVE)", {
+  network: plan.network,
+  phone,
+  apiCode: plan.apiCode
+});
+
+const smeplugRes = await axios.post(
+  `${process.env.SMEPLUG_BASE_URL}/api/data`,
+  {
+    network: plan.network.toLowerCase(),
+    phone: phone,
+    plan_code: plan.apiCode
+  },
+  {
+    headers: {
+      Authorization: `Bearer ${process.env.SMEPLUG_API_KEY}`,
+      "Content-Type": "application/json"
+    }
+  }
+);
+
+console.log("✅ SMEPlug response:", smeplugRes.data);
+
+if (
+  !smeplugRes.data ||
+  smeplugRes.data.status !== "success"
+) {
+  return res.status(400).json({
+    error: "SMEPlug failed",
+    details: smeplugRes.data
+  });
+}
 
     /*
     ===== REAL SMEPLUG CALL (ENABLE LATER) =====
