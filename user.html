@@ -1,17 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>User – Buy Data</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #f6f7fb;
+      background: #f4f6fb;
       padding: 20px;
     }
-    .card {
-      max-width: 400px;
+    .box {
+      max-width: 420px;
       margin: auto;
       background: #fff;
       padding: 20px;
@@ -20,32 +21,34 @@
     }
     h2 {
       text-align: center;
+      margin-bottom: 10px;
+    }
+    .balance {
+      text-align: center;
+      font-weight: bold;
+      margin-bottom: 15px;
     }
     select, input, button {
       width: 100%;
       padding: 12px;
       margin-top: 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
     }
     button {
       background: #4f46e5;
       color: white;
       border: none;
-      border-radius: 6px;
       cursor: pointer;
     }
     button:hover {
       background: #4338ca;
     }
-    .balance {
-      text-align: center;
-      margin-bottom: 15px;
-      font-weight: bold;
-    }
   </style>
 </head>
 <body>
 
-  <div class="card">
+  <div class="box">
     <h2>Buy Data</h2>
 
     <div class="balance">
@@ -56,46 +59,72 @@
       <option>Loading plans...</option>
     </select>
 
-    <input
-      id="phone"
-      type="tel"
-      placeholder="Enter phone number"
-    />
+    <input id="phone" placeholder="Enter phone number" />
 
     <button onclick="buyData()">Buy Data</button>
   </div>
 
   <script>
-    const userId = "testuser1"; // static for now
+    const userId = "testuser1";
 
+    /* Load wallet balance */
     async function loadWallet() {
-      const res = await fetch(`/user/wallet/${userId}`);
-      const data = await res.json();
-      document.getElementById("balance").innerText = data.balance || 0;
-    }
-
-    async function loadPlans() {
-      const res = await fetch("/admin/plans");
-      const plans = await res.json();
-
-      const select = document.getElementById("planSelect");
-      select.innerHTML = "";
-
-      if (!plans.length) {
-        const opt = document.createElement("option");
-        opt.textContent = "No plans available";
-        select.appendChild(opt);
-        return;
+      try {
+        const res = await fetch(`/user/wallet/${userId}`);
+        const data = await res.json();
+        document.getElementById("balance").innerText =
+          data.balance !== undefined ? data.balance : 0;
+      } catch (e) {
+        console.error("Wallet error", e);
       }
-
-      plans.forEach(plan => {
-        const opt = document.createElement("option");
-        opt.value = plan.id;
-        opt.textContent = `${plan.planName} - ₦${plan.sellPrice}`;
-        select.appendChild(opt);
-      });
     }
 
+    /* Load plans */
+    async function loadPlans() {
+      try {
+        const res = await fetch("/admin/plans");
+        const plans = await res.json();
+
+        const select = document.getElementById("planSelect");
+        select.innerHTML = "";
+
+        if (!Array.isArray(plans) || plans.length === 0) {
+          const opt = document.createElement("option");
+          opt.textContent = "No plans available";
+          select.appendChild(opt);
+          return;
+        }
+
+        plans.forEach((plan, index) => {
+          const opt = document.createElement("option");
+
+          const id =
+            plan.id ||
+            plan.planId ||
+            plan._id ||
+            index.toString();
+
+          const name =
+            plan.planName ||
+            plan.name ||
+            "Data Plan";
+
+          const price =
+            plan.sellPrice ||
+            plan.price ||
+            plan.amount ||
+            0;
+
+          opt.value = id;
+          opt.textContent = `${name} - ₦${price}`;
+          select.appendChild(opt);
+        });
+      } catch (e) {
+        console.error("Plan load error", e);
+      }
+    }
+
+    /* Buy data */
     async function buyData() {
       const planId = document.getElementById("planSelect").value;
       const phone = document.getElementById("phone").value;
@@ -107,26 +136,32 @@
 
       console.log("📤 Sending buy-data request");
 
-      const res = await fetch("/user/buy-data", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          userId,
-          planId,
-          phone
-        })
-      });
+      try {
+        const res = await fetch("/user/buy-data", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            userId,
+            planId,
+            phone
+          })
+        });
 
-      const data = await res.json();
-      console.log("📥 Response:", data);
+        const data = await res.json();
+        console.log("📥 Response:", data);
 
-      if (data.success) {
-        alert("✅ Data purchased successfully");
-        document.getElementById("balance").innerText = data.balance;
-      } else {
-        alert(data.error || "Purchase failed");
+        if (data.success) {
+          alert("✅ Data purchased successfully");
+          document.getElementById("balance").innerText =
+            data.balance !== undefined ? data.balance : 0;
+        } else {
+          alert(data.error || "Purchase failed");
+        }
+      } catch (e) {
+        alert("Server error");
+        console.error(e);
       }
     }
 
