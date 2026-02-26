@@ -161,26 +161,21 @@ if (
 
     /*
     ===== REAL SMEPLUG CALL (ENABLE LATER) =====
-
-    const smeplugRes = await axios.post(
-      `${process.env.SMEPLUG_BASE_URL}/api/data`,
-      {
-        network: plan.network.toLowerCase(),
-        phone,
-        plan_code: plan.apiCode
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.SMEPLUG_API_KEY}`,
-          "Content-Type": "application/json"
-        }
-      }
-    );
-
-    if (smeplugRes.data.status !== "success") {
-      return res.status(400).json({ error: "SMEPlug failed" });
+const smeplugRes = await axios.post(
+  `${process.env.SMEPLUG_BASE_URL}/api/v1/data`,
+  {
+    network: plan.network.toLowerCase(),
+    phone: phone,
+    plan_code: plan.apiCode
+  },
+  {
+    headers: {
+      Authorization: `Bearer ${process.env.SMEPLUG_API_KEY}`,
+      "Content-Type": "application/json"
     }
-    */
+  }
+);
+    
 
     /* 💰 DEDUCT WALLET */
     wallets[userId].balance -= plan.price;
