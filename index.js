@@ -84,8 +84,23 @@ app.post("/user/init-wallet", (req, res) => {
 
 /* ---------- GET WALLET ---------- */
 app.get("/user/wallet/:userId", (req, res) => {
+  const { userId } = req.params;
   const wallets = readJSON(WALLETS_FILE, {});
-  res.json(wallets[req.params.userId] || { balance: 0 });
+
+  // AUTO-CREATE WALLET IF NOT EXISTS
+  if (!wallets[userId]) {
+    wallets[userId] = {
+      balance: 1000, // demo credit
+      account: {
+        accountNumber:
+          "31" + Math.floor(100000000 + Math.random() * 900000000),
+        bankName: "Wema Bank"
+      }
+    };
+    writeJSON(WALLETS_FILE, wallets);
+  }
+
+  res.json(wallets[userId]);
 });
 
 /* ---------- BUY DATA (SAFE VERSION) ---------- */
