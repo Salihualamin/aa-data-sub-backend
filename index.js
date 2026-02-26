@@ -4,7 +4,7 @@ const path = require("path");
 const axios = require("axios");
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 
 app.use(express.json());
 app.use(express.static(__dirname));
@@ -19,11 +19,12 @@ function readJSON(file, fallback) {
   if (!fs.existsSync(file)) return fallback;
   return JSON.parse(fs.readFileSync(file, "utf8"));
 }
+
 function writeJSON(file, data) {
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
 }
 
-/* ---------- HEALTH CHECK ---------- */
+/* ---------- ROOT ---------- */
 app.get("/", (req, res) => {
   res.send("A’A DATA SUB backend is running 🚀");
 });
@@ -49,7 +50,7 @@ app.post("/admin/plans", (req, res) => {
   const { network, planName, price, apiCode } = req.body;
 
   if (!network || !planName || !price || !apiCode) {
-    return res.status(400).json({ error: "All fields are required" });
+    return res.status(400).json({ error: "All fields required" });
   }
 
   const plans = readJSON(PLANS_FILE, []);
@@ -75,6 +76,7 @@ app.post("/user/init-wallet", (req, res) => {
     wallets[userId] = { balance: 0 };
     writeJSON(WALLETS_FILE, wallets);
   }
+
   res.json(wallets[userId]);
 });
 
@@ -82,6 +84,27 @@ app.post("/user/init-wallet", (req, res) => {
 app.get("/user/wallet/:userId", (req, res) => {
   const wallets = readJSON(WALLETS_FILE, {});
   res.json(wallets[req.params.userId] || { balance: 0 });
+});
+
+/* ---------- ADMIN CREDIT WALLET (TEST / FUNDING) ---------- */
+app.post("/admin/credit-wallet", (req, res) => {
+  const { userId, amount } = req.body;
+
+  if (!userId || !amount) {
+    return res.status(400).json({ error: "Missing fields" });
+  }
+
+  const wallets = readJSON(WALLETS_FILE, {});
+  if (!wallets[userId]) wallets[userId] = { balance: 0 };
+
+  wallets[userId].balance += Number(amount);
+  writeJSON(WALLETS_FILE, wallets);
+
+  res.json({
+    success: true,
+    userId,
+    balance: wallets[userId].balance
+  });
 });
 
 /* ---------- BUY DATA (REAL SMEPLUG) ---------- */
@@ -104,14 +127,12 @@ app.post("/user/buy-data", async (req, res) => {
       return res.status(400).json({ error: "Insufficient balance" });
     }
 
-    // 🚀 LOG REQUEST
     console.log("🚀 Sending to SMEPlug (LIVE)", {
       network: plan.network,
       phone,
       apiCode: plan.apiCode
     });
 
-    // ✅ SMEPLUG API CALL
     const smeplugRes = await axios.post(
       `${process.env.SMEPLUG_BASE_URL}/api/data`,
       {
@@ -136,16 +157,16 @@ app.post("/user/buy-data", async (req, res) => {
       });
     }
 
-    // 💰 DEDUCT WALLET
+    // Deduct wallet AFTER success
     wallets[userId].balance -= plan.price;
 
-    // 🧾 SAVE TRANSACTION
     const receipt = {
       id: Date.now().toString(),
+      appName: "A’A DATA SUB",
       userId,
-      phone,
       network: plan.network,
       plan: plan.planName,
+      phone,
       amount: plan.price,
       reference: smeplugRes.data.reference,
       date: new Date().toLocaleString("en-NG", {
