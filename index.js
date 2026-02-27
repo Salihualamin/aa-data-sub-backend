@@ -1,3 +1,4 @@
+require("dotenv").config();
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
@@ -9,78 +10,55 @@ const PORT = process.env.PORT || 10000;
 app.use(express.json());
 app.use(express.static(__dirname));
 
-/* ---------- FILE PATHS ---------- */
+/* ================= FILE PATHS ================= */
 const PLANS_FILE = path.join(__dirname, "plans.json");
 const WALLETS_FILE = path.join(__dirname, "wallets.json");
 const TX_FILE = path.join(__dirname, "transactions.json");
 
-/* ---------- HELPERS ---------- */
+/* ================= HELPERS ================= */
 function readJSON(file, fallback) {
   if (!fs.existsSync(file)) return fallback;
   return JSON.parse(fs.readFileSync(file, "utf8"));
 }
-
 function writeJSON(file, data) {
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
 }
 
-/* ---------- ROOT ---------- */
-app.get("/", (req, res) => {
-  res.send("A’A DATA SUB backend is running 🚀");
-});
-
-/* ---------- ADMIN LOGIN ---------- */
-app.post("/admin/login", (req, res) => {
-  const { email, password } = req.body;
-  if (email === "admin@aadatasub.com" && password === "Admin1234") {
-    return res.json({ success: true });
-  }
-  res.status(401).json({ error: "Invalid credentials" });
-});
-
-/* ---------- ADMIN PLANS ---------- */
-app.get("/admin/plans", (req, res) => {
-  res.json(readJSON(PLANS_FILE, []));
-});
-
-app.post("/admin/plans", (req, res) => {
-  const { network, planName, price, apiCode } = req.body;
-
-  if (!network || !planName || !price || !apiCode) {
-    return res.status(400).json({ error: "All fields required" });
-  }
-
-  const plans = readJSON(PLANS_FILE, []);
-  plans.push({
-    id: Date.now().toString(),
-    network,
-    planName,
-    price: Number(price),
-    apiCode
-  });
-
-  writeJSON(PLANS_FILE, plans);
-  res.json({ success: true });
-});
-
-/* ---------- AUTO INIT + CREDIT WALLET (TEST MODE) ---------- */
-app.get("/user/wallet/:userId", (req, res) => {
-  const userId = req.params.userId;
+/* ================= INIT WALLET ================= */
+/* 👉 OPEN THIS IN BROWSER TO CREDIT USER */
+app.get("/user/init-wallet/:userId", (req, res) => {
+  const { userId } = req.params;
   const wallets = readJSON(WALLETS_FILE, {});
 
   if (!wallets[userId]) {
-    wallets[userId] = { balance: 5000 }; // AUTO ₦5,000 FOR TESTING
-    writeJSON(WALLETS_FILE, wallets);
+    wallets[userId] = {
+      balance: 2000, // ✅ TEST CREDIT
+      createdAt: new Date().toISOString()
+    };
   }
 
-  res.json(wallets[userId]);
+  writeJSON(WALLETS_FILE, wallets);
+  res.json({
+    message: "Wallet initialized",
+    wallet: wallets[userId]
+  });
 });
 
-/* ---------- BUY DATA (REAL SMEPLUG) ---------- */
+/* ================= GET WALLET ================= */
+app.get("/user/wallet/:userId", (req, res) => {
+  const wallets = readJSON(WALLETS_FILE, {});
+  res.json(wallets[req.params.userId] || { balance: 0 });
+});
+
+/* ================= GET PLANS ================= */
+app.get("/user/plans", (req, res) => {
+  res.json(readJSON(PLANS_FILE, []));
+});
+
+/* ================= BUY DATA ================= */
 app.post("/user/buy-data", async (req, res) => {
   try {
     const { userId, planId, phone } = req.body;
-
     if (!userId || !planId || !phone) {
       return res.status(400).json({ error: "Missing fields" });
     }
@@ -90,20 +68,22 @@ app.post("/user/buy-data", async (req, res) => {
     const txs = readJSON(TX_FILE, []);
 
     const plan = plans.find(p => p.id === planId);
-    if (!plan) return res.status(404).json({ error: "Plan not found" });
+    if (!plan) return res.status(400).json({ error: "Invalid plan" });
 
     if (!wallets[userId] || wallets[userId].balance < plan.price) {
       return res.status(400).json({ error: "Insufficient balance" });
     }
 
+    /* ===== LOG BEFORE SMEPLUG ===== */
     console.log("🚀 Sending to SMEPlug (LIVE)", {
       network: plan.network,
       phone,
       apiCode: plan.apiCode
     });
 
+    /* ===== SMEPLUG API CALL ===== */
     const smeplugRes = await axios.post(
-      `${process.env.SMEPLUG_BASE_URL}/api/data/subscribe`,
+      "https://api.smeplug.com/v1/data",
       {
         network: plan.network.toLowerCase(),
         phone: phone,
@@ -111,7 +91,7 @@ app.post("/user/buy-data", async (req, res) => {
       },
       {
         headers: {
-          Authorization: `Bearer ${process.env.SMEPLUG_API_KEY}`,
+          "X-API-KEY": process.env.SMEPLUG_API_KEY,
           "Content-Type": "application/json"
         }
       }
@@ -126,22 +106,22 @@ app.post("/user/buy-data", async (req, res) => {
       });
     }
 
-    // 💰 DEDUCT WALLET AFTER SUCCESS
+    /* ===== DEDUCT WALLET ===== */
     wallets[userId].balance -= plan.price;
 
-    const receipt = {
-      appName: "A’A DATA SUB",
+    const tx = {
+      id: Date.now().toString(),
+      userId,
+      phone,
       network: plan.network,
       plan: plan.planName,
-      phone,
       amount: plan.price,
       reference: smeplugRes.data.reference,
-      date: new Date().toLocaleString("en-NG", {
-        timeZone: "Africa/Lagos"
-      })
+      status: "SUCCESS",
+      date: new Date().toISOString()
     };
 
-    txs.push(receipt);
+    txs.push(tx);
 
     writeJSON(WALLETS_FILE, wallets);
     writeJSON(TX_FILE, txs);
@@ -149,7 +129,7 @@ app.post("/user/buy-data", async (req, res) => {
     res.json({
       success: true,
       message: "Data purchase successful",
-      receipt,
+      receipt: tx,
       balance: wallets[userId].balance
     });
 
@@ -162,7 +142,7 @@ app.post("/user/buy-data", async (req, res) => {
   }
 });
 
-/* ---------- START SERVER ---------- */
+/* ================= SERVER ================= */
 app.listen(PORT, () => {
-  console.log("A’A DATA SUB backend running 🚀");
+  console.log(`A’A DATA SUB backend running on port ${PORT} 🚀`);
 });
