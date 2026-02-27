@@ -1,4 +1,3 @@
-require("dotenv").config();
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
@@ -25,23 +24,19 @@ function writeJSON(file, data) {
 }
 
 /* ================= INIT WALLET ================= */
-/* 👉 OPEN THIS IN BROWSER TO CREDIT USER */
 app.get("/user/init-wallet/:userId", (req, res) => {
   const { userId } = req.params;
   const wallets = readJSON(WALLETS_FILE, {});
 
   if (!wallets[userId]) {
     wallets[userId] = {
-      balance: 2000, // ✅ TEST CREDIT
+      balance: 2000,
       createdAt: new Date().toISOString()
     };
   }
 
   writeJSON(WALLETS_FILE, wallets);
-  res.json({
-    message: "Wallet initialized",
-    wallet: wallets[userId]
-  });
+  res.json({ success: true, wallet: wallets[userId] });
 });
 
 /* ================= GET WALLET ================= */
@@ -59,9 +54,6 @@ app.get("/user/plans", (req, res) => {
 app.post("/user/buy-data", async (req, res) => {
   try {
     const { userId, planId, phone } = req.body;
-    if (!userId || !planId || !phone) {
-      return res.status(400).json({ error: "Missing fields" });
-    }
 
     const wallets = readJSON(WALLETS_FILE, {});
     const plans = readJSON(PLANS_FILE, []);
@@ -74,19 +66,17 @@ app.post("/user/buy-data", async (req, res) => {
       return res.status(400).json({ error: "Insufficient balance" });
     }
 
-    /* ===== LOG BEFORE SMEPLUG ===== */
     console.log("🚀 Sending to SMEPlug (LIVE)", {
       network: plan.network,
       phone,
       apiCode: plan.apiCode
     });
 
-    /* ===== SMEPLUG API CALL ===== */
     const smeplugRes = await axios.post(
       "https://api.smeplug.com/v1/data",
       {
         network: plan.network.toLowerCase(),
-        phone: phone,
+        phone,
         plan_code: plan.apiCode
       },
       {
@@ -100,13 +90,9 @@ app.post("/user/buy-data", async (req, res) => {
     console.log("✅ SMEPlug response:", smeplugRes.data);
 
     if (smeplugRes.data.status !== "success") {
-      return res.status(400).json({
-        error: "SMEPlug failed",
-        details: smeplugRes.data
-      });
+      return res.status(400).json({ error: "SMEPlug failed", details: smeplugRes.data });
     }
 
-    /* ===== DEDUCT WALLET ===== */
     wallets[userId].balance -= plan.price;
 
     const tx = {
@@ -117,7 +103,6 @@ app.post("/user/buy-data", async (req, res) => {
       plan: plan.planName,
       amount: plan.price,
       reference: smeplugRes.data.reference,
-      status: "SUCCESS",
       date: new Date().toISOString()
     };
 
@@ -133,12 +118,9 @@ app.post("/user/buy-data", async (req, res) => {
       balance: wallets[userId].balance
     });
 
-  } catch (error) {
-    console.error("❌ Buy data error:", error.response?.data || error.message);
-    res.status(500).json({
-      error: "Server error",
-      details: error.response?.data || error.message
-    });
+  } catch (err) {
+    console.error("❌ Buy data error:", err.response?.data || err.message);
+    res.status(500).json({ error: "Server error" });
   }
 });
 
