@@ -30,12 +30,9 @@ app.get("/", (req, res) => {
 });
 
 /* ---------- ADMIN LOGIN ---------- */
-const ADMIN_EMAIL = "admin@aadatasub.com";
-const ADMIN_PASSWORD = "Admin1234";
-
 app.post("/admin/login", (req, res) => {
   const { email, password } = req.body;
-  if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+  if (email === "admin@aadatasub.com" && password === "Admin1234") {
     return res.json({ success: true });
   }
   res.status(401).json({ error: "Invalid credentials" });
@@ -48,7 +45,6 @@ app.get("/admin/plans", (req, res) => {
 
 app.post("/admin/plans", (req, res) => {
   const { network, planName, price, apiCode } = req.body;
-
   if (!network || !planName || !price || !apiCode) {
     return res.status(400).json({ error: "All fields required" });
   }
@@ -61,60 +57,28 @@ app.post("/admin/plans", (req, res) => {
     price: Number(price),
     apiCode
   });
-
   writeJSON(PLANS_FILE, plans);
   res.json({ success: true });
 });
 
-/* ---------- INIT WALLET ---------- */
-app.post("/user/init-wallet", (req, res) => {
-  const { userId } = req.body;
-  if (!userId) return res.status(400).json({ error: "Missing userId" });
-
+/* ---------- AUTO INIT + CREDIT WALLET ---------- */
+app.get("/user/wallet/:userId", (req, res) => {
+  const userId = req.params.userId;
   const wallets = readJSON(WALLETS_FILE, {});
+
+  // 🔥 AUTO CREATE + AUTO CREDIT (TEST MODE)
   if (!wallets[userId]) {
-    wallets[userId] = { balance: 0 };
+    wallets[userId] = { balance: 5000 }; // ₦5,000 test balance
     writeJSON(WALLETS_FILE, wallets);
   }
 
   res.json(wallets[userId]);
 });
 
-/* ---------- GET WALLET ---------- */
-app.get("/user/wallet/:userId", (req, res) => {
-  const wallets = readJSON(WALLETS_FILE, {});
-  res.json(wallets[req.params.userId] || { balance: 0 });
-});
-
-/* ---------- ADMIN CREDIT WALLET (TEST / FUNDING) ---------- */
-app.post("/admin/credit-wallet", (req, res) => {
-  const { userId, amount } = req.body;
-
-  if (!userId || !amount) {
-    return res.status(400).json({ error: "Missing fields" });
-  }
-
-  const wallets = readJSON(WALLETS_FILE, {});
-  if (!wallets[userId]) wallets[userId] = { balance: 0 };
-
-  wallets[userId].balance += Number(amount);
-  writeJSON(WALLETS_FILE, wallets);
-
-  res.json({
-    success: true,
-    userId,
-    balance: wallets[userId].balance
-  });
-});
-
 /* ---------- BUY DATA (REAL SMEPLUG) ---------- */
 app.post("/user/buy-data", async (req, res) => {
   try {
     const { userId, planId, phone } = req.body;
-
-    if (!userId || !planId || !phone) {
-      return res.status(400).json({ error: "Missing fields" });
-    }
 
     const wallets = readJSON(WALLETS_FILE, {});
     const plans = readJSON(PLANS_FILE, []);
@@ -137,7 +101,7 @@ app.post("/user/buy-data", async (req, res) => {
       `${process.env.SMEPLUG_BASE_URL}/api/data`,
       {
         network: plan.network.toLowerCase(),
-        phone: phone,
+        phone,
         plan_code: plan.apiCode
       },
       {
@@ -151,19 +115,14 @@ app.post("/user/buy-data", async (req, res) => {
     console.log("✅ SMEPlug response:", smeplugRes.data);
 
     if (smeplugRes.data.status !== "success") {
-      return res.status(400).json({
-        error: "SMEPlug failed",
-        details: smeplugRes.data
-      });
+      return res.status(400).json({ error: "SMEPlug failed" });
     }
 
-    // Deduct wallet AFTER success
+    // 💰 Deduct wallet
     wallets[userId].balance -= plan.price;
 
     const receipt = {
-      id: Date.now().toString(),
-      appName: "A’A DATA SUB",
-      userId,
+      app: "A’A DATA SUB",
       network: plan.network,
       plan: plan.planName,
       phone,
@@ -181,21 +140,17 @@ app.post("/user/buy-data", async (req, res) => {
 
     res.json({
       success: true,
-      message: "Data purchase successful",
       receipt,
       balance: wallets[userId].balance
     });
 
   } catch (error) {
     console.error("❌ Buy data error:", error.response?.data || error.message);
-    res.status(500).json({
-      error: "Server error",
-      details: error.response?.data || error.message
-    });
+    res.status(500).json({ error: "Server error" });
   }
 });
 
-/* ---------- START SERVER ---------- */
+/* ---------- START ---------- */
 app.listen(PORT, () => {
   console.log("A’A DATA SUB backend running 🚀");
 });
