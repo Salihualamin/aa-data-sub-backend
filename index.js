@@ -3,83 +3,76 @@ const fs = require("fs");
 const path = require("path");
 
 const app = express();
-const PORT = process.env.PORT || 10000;
+const PORT = process.env.PORT || 3000;
 
-/* ================= MIDDLEWARE ================= */
+/* ---------------- MIDDLEWARE ---------------- */
 app.use(express.json());
 app.use(express.static(__dirname));
 
-/* ================= FILE PATHS ================= */
+/* ---------------- FILE PATHS ---------------- */
 const PLANS_FILE = path.join(__dirname, "plans.json");
 const WALLETS_FILE = path.join(__dirname, "wallets.json");
 const TX_FILE = path.join(__dirname, "transactions.json");
 
-/* ================= HELPERS ================= */
+/* ---------------- HELPERS ---------------- */
 function readJSON(file, fallback) {
-  try {
-    if (!fs.existsSync(file)) return fallback;
-    return JSON.parse(fs.readFileSync(file, "utf8"));
-  } catch {
-    return fallback;
-  }
+  if (!fs.existsSync(file)) return fallback;
+  return JSON.parse(fs.readFileSync(file, "utf8"));
 }
 
 function writeJSON(file, data) {
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
 }
 
-/* ================= ROOT ================= */
+/* ---------------- ROOT ---------------- */
 app.get("/", (req, res) => {
   res.send("A’A DATA SUB backend is running 🚀");
 });
 
-/* ================= ADMIN LOGIN ================= */
+/* ================== ADMIN ================== */
+
 const ADMIN_EMAIL = "admin@aadatasub.com";
 const ADMIN_PASSWORD = "Admin1234";
 
+/* ADMIN LOGIN */
 app.post("/admin/login", (req, res) => {
   const { email, password } = req.body;
-
   if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
     return res.json({ success: true });
   }
-
   res.status(401).json({ error: "Invalid credentials" });
 });
 
-/* ================= ADMIN PLANS ================= */
+/* GET PLANS */
 app.get("/admin/plans", (req, res) => {
-  const plans = readJSON(PLANS_FILE, []);
-  res.json(plans);
+  res.json(readJSON(PLANS_FILE, []));
 });
 
+/* ADD PLAN */
 app.post("/admin/plans", (req, res) => {
-  console.log("📦 ADD PLAN BODY:", req.body);
-
   const { network, planName, price, apiCode } = req.body;
 
   if (!network || !planName || !price || !apiCode) {
-    return res.status(400).json({ error: "All fields required" });
+    return res.status(400).json({ error: "All fields are required" });
   }
 
   const plans = readJSON(PLANS_FILE, []);
 
-  const newPlan = {
+  plans.push({
     id: Date.now().toString(),
     network,
     planName,
     price: Number(price),
     apiCode
-  };
+  });
 
-  plans.push(newPlan);
   writeJSON(PLANS_FILE, plans);
-
-  console.log("✅ PLAN ADDED:", newPlan);
-  res.json({ success: true, plan: newPlan });
+  res.json({ success: true });
 });
 
-/* ================= USER: INIT WALLET ================= */
+/* ================== USER ================== */
+
+/* INIT WALLET */
 app.post("/user/init-wallet", (req, res) => {
   const { userId } = req.body;
   if (!userId) return res.status(400).json({ error: "Missing userId" });
@@ -88,9 +81,9 @@ app.post("/user/init-wallet", (req, res) => {
 
   if (!wallets[userId]) {
     wallets[userId] = {
-      balance: 1000, // demo credit
+      balance: 1000, // demo money
       account: {
-        accountNumber: "31" + Math.floor(Math.random() * 1e9),
+        accountNumber: "31" + Math.floor(100000000 + Math.random() * 900000000),
         bankName: "Wema Bank"
       }
     };
@@ -100,28 +93,22 @@ app.post("/user/init-wallet", (req, res) => {
   res.json(wallets[userId]);
 });
 
-/* ================= USER: GET WALLET ================= */
+/* GET WALLET */
 app.get("/user/wallet/:userId", (req, res) => {
   const wallets = readJSON(WALLETS_FILE, {});
   res.json(wallets[req.params.userId] || { balance: 0 });
 });
 
-/* ================= USER: GET PLANS ================= */
-app.get("/user/plans", (req, res) => {
-  res.json(readJSON(PLANS_FILE, []));
-});
-
-/* ================= USER: BUY DATA (MOCK) ================= */
+/* BUY DATA (MOCK – SAFE) */
 app.post("/user/buy-data", (req, res) => {
-  console.log("🛒 BUY DATA BODY:", req.body);
-
   const { userId, planId, phone } = req.body;
+
   if (!userId || !planId || !phone) {
     return res.status(400).json({ error: "Missing fields" });
   }
 
-  const wallets = readJSON(WALLETS_FILE, {});
   const plans = readJSON(PLANS_FILE, []);
+  const wallets = readJSON(WALLETS_FILE, {});
   const txs = readJSON(TX_FILE, []);
 
   const plan = plans.find(p => p.id === planId);
@@ -141,16 +128,14 @@ app.post("/user/buy-data", (req, res) => {
     plan: plan.planName,
     amount: plan.price,
     status: "SUCCESS",
-    reference: "AA" + Date.now(),
-    date: new Date().toISOString()
+    date: new Date().toISOString(),
+    reference: "AA-" + Math.floor(Math.random() * 1000000)
   };
 
   txs.push(tx);
 
   writeJSON(WALLETS_FILE, wallets);
   writeJSON(TX_FILE, txs);
-
-  console.log("✅ DATA PURCHASE SUCCESS:", tx);
 
   res.json({
     success: true,
@@ -160,7 +145,7 @@ app.post("/user/buy-data", (req, res) => {
   });
 });
 
-/* ================= SERVER ================= */
+/* ---------------- START SERVER ---------------- */
 app.listen(PORT, () => {
   console.log("A’A DATA SUB backend running 🚀");
 });
