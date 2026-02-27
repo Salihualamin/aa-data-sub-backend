@@ -1,7 +1,6 @@
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
-const axios = require("axios");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -24,12 +23,11 @@ function writeJSON(file, data) {
 }
 
 /* ---------- AUTO CREATE TEST WALLET ---------- */
-/* THIS REMOVES ALL YOUR WALLET CONFUSION */
-(function initTestWallet() {
+(function initWallet() {
   const wallets = readJSON(WALLETS_FILE, {});
   if (!wallets["testuser1"]) {
     wallets["testuser1"] = {
-      balance: 2000, // 👈 TEST MONEY
+      balance: 2000,
       account: {
         accountNumber: "3199999999",
         bankName: "Wema Bank"
@@ -66,7 +64,7 @@ app.post("/admin/plans", (req, res) => {
   const { network, planName, price, apiCode } = req.body;
 
   if (!network || !planName || !price || !apiCode) {
-    return res.status(400).json({ error: "All fields required" });
+    return res.status(400).json({ error: "All fields are required" });
   }
 
   const plans = readJSON(PLANS_FILE, []);
@@ -88,82 +86,53 @@ app.get("/user/wallet/:userId", (req, res) => {
   res.json(wallets[req.params.userId] || { balance: 0 });
 });
 
-/* ---------- BUY DATA (SMEPLUG LIVE) ---------- */
-app.post("/user/buy-data", async (req, res) => {
-  try {
-    const { userId, planId, phone } = req.body;
+/* ---------- BUY DATA (MOCK SUCCESS) ---------- */
+app.post("/user/buy-data", (req, res) => {
+  const { userId, planId, phone } = req.body;
 
-    const wallets = readJSON(WALLETS_FILE, {});
-    const plans = readJSON(PLANS_FILE, []);
-    const txs = readJSON(TX_FILE, []);
-
-    const plan = plans.find(p => p.id === planId);
-    if (!plan) return res.status(400).json({ error: "Plan not found" });
-
-    if (!wallets[userId] || wallets[userId].balance < plan.price) {
-      return res.status(400).json({ error: "Insufficient balance" });
-    }
-
-    console.log("🚀 Sending to SMEPlug (LIVE)", {
-      network: plan.network,
-      phone,
-      apiCode: plan.apiCode
-    });
-
-    const smeplugRes = await axios.post(
-      "https://api.smeplug.com/v1/data",
-      {
-        network: plan.network.toLowerCase(),
-        phone: phone,
-        plan_code: plan.apiCode
-      },
-      {
-        headers: {
-          "X-API-KEY": process.env.SMEPLUG_API_KEY,
-          "Content-Type": "application/json"
-        }
-      }
-    );
-
-    console.log("✅ SMEPlug response:", smeplugRes.data);
-
-    if (smeplugRes.data.status !== "success") {
-      return res.status(400).json({
-        error: "SMEPlug failed",
-        details: smeplugRes.data
-      });
-    }
-
-    wallets[userId].balance -= plan.price;
-
-    txs.push({
-      id: Date.now().toString(),
-      userId,
-      phone,
-      network: plan.network,
-      plan: plan.planName,
-      amount: plan.price,
-      reference: smeplugRes.data.reference || "N/A",
-      date: new Date().toISOString()
-    });
-
-    writeJSON(WALLETS_FILE, wallets);
-    writeJSON(TX_FILE, txs);
-
-    res.json({
-      success: true,
-      message: "Data purchase successful",
-      balance: wallets[userId].balance,
-      receipt: txs[txs.length - 1]
-    });
-
-  } catch (error) {
-    console.error("❌ Buy data error:", error.response?.data || error.message);
-    res.status(500).json({
-      error: "Server error",
-      details: error.response?.data || error.message
-    });
+  if (!userId || !planId || !phone) {
+    return res.status(400).json({ error: "Missing fields" });
   }
+
+  const wallets = readJSON(WALLETS_FILE, {});
+  const plans = readJSON(PLANS_FILE, []);
+  const txs = readJSON(TX_FILE, []);
+
+  const plan = plans.find(p => p.id === planId);
+  if (!plan) return res.status(404).json({ error: "Plan not found" });
+
+  if (!wallets[userId] || wallets[userId].balance < plan.price) {
+    return res.status(400).json({ error: "Insufficient balance" });
+  }
+
+  // 💰 Deduct wallet
+  wallets[userId].balance -= plan.price;
+
+  // 🧾 Mock transaction
+  const receipt = {
+    id: Date.now().toString(),
+    userId,
+    phone,
+    network: plan.network,
+    plan: plan.planName,
+    amount: plan.price,
+    reference: "MOCK-" + Date.now(),
+    date: new Date().toISOString()
+  };
+
+  txs.push(receipt);
+
+  writeJSON(WALLETS_FILE, wallets);
+  writeJSON(TX_FILE, txs);
+
+  console.log("✅ MOCK DATA PURCHASE SUCCESS:", receipt);
+
+  res.json({
+    success: true,
+    message: "Data purchase successful",
+    balance: wallets[userId].balance,
+    receipt
+  });
 });
 
 /* ---------- SERVER ---------- */
