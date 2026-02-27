@@ -45,6 +45,7 @@ app.get("/admin/plans", (req, res) => {
 
 app.post("/admin/plans", (req, res) => {
   const { network, planName, price, apiCode } = req.body;
+
   if (!network || !planName || !price || !apiCode) {
     return res.status(400).json({ error: "All fields required" });
   }
@@ -57,18 +58,18 @@ app.post("/admin/plans", (req, res) => {
     price: Number(price),
     apiCode
   });
+
   writeJSON(PLANS_FILE, plans);
   res.json({ success: true });
 });
 
-/* ---------- AUTO INIT + CREDIT WALLET ---------- */
+/* ---------- AUTO INIT + CREDIT WALLET (TEST MODE) ---------- */
 app.get("/user/wallet/:userId", (req, res) => {
   const userId = req.params.userId;
   const wallets = readJSON(WALLETS_FILE, {});
 
-  // 🔥 AUTO CREATE + AUTO CREDIT (TEST MODE)
   if (!wallets[userId]) {
-    wallets[userId] = { balance: 5000 }; // ₦5,000 test balance
+    wallets[userId] = { balance: 5000 }; // AUTO ₦5,000 FOR TESTING
     writeJSON(WALLETS_FILE, wallets);
   }
 
@@ -79,6 +80,10 @@ app.get("/user/wallet/:userId", (req, res) => {
 app.post("/user/buy-data", async (req, res) => {
   try {
     const { userId, planId, phone } = req.body;
+
+    if (!userId || !planId || !phone) {
+      return res.status(400).json({ error: "Missing fields" });
+    }
 
     const wallets = readJSON(WALLETS_FILE, {});
     const plans = readJSON(PLANS_FILE, []);
@@ -98,10 +103,10 @@ app.post("/user/buy-data", async (req, res) => {
     });
 
     const smeplugRes = await axios.post(
-      `${process.env.SMEPLUG_BASE_URL}/api/data`,
+      `${process.env.SMEPLUG_BASE_URL}/api/data/subscribe`,
       {
         network: plan.network.toLowerCase(),
-        phone,
+        phone: phone,
         plan_code: plan.apiCode
       },
       {
@@ -115,14 +120,17 @@ app.post("/user/buy-data", async (req, res) => {
     console.log("✅ SMEPlug response:", smeplugRes.data);
 
     if (smeplugRes.data.status !== "success") {
-      return res.status(400).json({ error: "SMEPlug failed" });
+      return res.status(400).json({
+        error: "SMEPlug failed",
+        details: smeplugRes.data
+      });
     }
 
-    // 💰 Deduct wallet
+    // 💰 DEDUCT WALLET AFTER SUCCESS
     wallets[userId].balance -= plan.price;
 
     const receipt = {
-      app: "A’A DATA SUB",
+      appName: "A’A DATA SUB",
       network: plan.network,
       plan: plan.planName,
       phone,
@@ -140,17 +148,21 @@ app.post("/user/buy-data", async (req, res) => {
 
     res.json({
       success: true,
+      message: "Data purchase successful",
       receipt,
       balance: wallets[userId].balance
     });
 
   } catch (error) {
     console.error("❌ Buy data error:", error.response?.data || error.message);
-    res.status(500).json({ error: "Server error" });
+    res.status(500).json({
+      error: "Server error",
+      details: error.response?.data || error.message
+    });
   }
 });
 
-/* ---------- START ---------- */
+/* ---------- START SERVER ---------- */
 app.listen(PORT, () => {
   console.log("A’A DATA SUB backend running 🚀");
 });
