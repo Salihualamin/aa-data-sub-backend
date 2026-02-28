@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.static(__dirname));
 
-/* ---------- FILES ---------- */
+/* ---------- FILE PATHS ---------- */
 const PLANS_FILE = path.join(__dirname, "plans.json");
 const WALLETS_FILE = path.join(__dirname, "wallets.json");
 const TX_FILE = path.join(__dirname, "transactions.json");
@@ -19,19 +19,18 @@ function readJSON(file, fallback) {
   if (!fs.existsSync(file)) return fallback;
   return JSON.parse(fs.readFileSync(file, "utf8"));
 }
+
 function writeJSON(file, data) {
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
 }
 
-/* ---------- AUTO TEST WALLET ---------- */
-(function () {
+/* ---------- AUTO CREATE TEST WALLET ---------- */
+(function initWallet() {
   const wallets = readJSON(WALLETS_FILE, {});
   if (!wallets["testuser1"]) {
-    wallets["testuser1"] = {
-      balance: 5000
-    };
+    wallets["testuser1"] = { balance: 5000 };
     writeJSON(WALLETS_FILE, wallets);
-    console.log("✅ testuser1 wallet funded with ₦5000");
+    console.log("✅ testuser1 wallet created with ₦5000");
   }
 })();
 
@@ -58,16 +57,16 @@ app.post("/admin/plans", (req, res) => {
   const { network, planName, price, apiCode } = req.body;
 
   if (!network || !planName || !price || !apiCode) {
-    return res.status(400).json({ error: "All fields required" });
+    return res.status(400).json({ error: "All fields are required" });
   }
 
   const plans = readJSON(PLANS_FILE, []);
   plans.push({
     id: Date.now().toString(),
-    network,          // 1,2,3,4
+    network: String(network),   // 1,2,3,4
     planName,
     price: Number(price),
-    apiCode           // SMEPlug plan ID
+    apiCode: String(apiCode)    // SMEPlug plan_id
   });
 
   writeJSON(PLANS_FILE, plans);
@@ -85,6 +84,10 @@ app.post("/user/buy-data", async (req, res) => {
   try {
     const { userId, planId, phone } = req.body;
 
+    if (!userId || !planId || !phone) {
+      return res.status(400).json({ error: "Missing fields" });
+    }
+
     const wallets = readJSON(WALLETS_FILE, {});
     const plans = readJSON(PLANS_FILE, []);
     const txs = readJSON(TX_FILE, []);
@@ -97,16 +100,16 @@ app.post("/user/buy-data", async (req, res) => {
     }
 
     console.log("🚀 Sending to SMEPlug (LIVE)", {
-      network: plan.network,
-      plan: plan.apiCode,
+      network_id: plan.network,
+      plan_id: plan.apiCode,
       phone
     });
 
     const smeplugRes = await axios.post(
       "https://smeplug.ng/api/v1/data/purchase",
       {
-        network: plan.network,
-        plan: plan.apiCode,
+        network_id: String(plan.network),
+        plan_id: String(plan.apiCode),
         phone: phone,
         customer_reference: "AADATASUB-" + Date.now()
       },
@@ -127,7 +130,7 @@ app.post("/user/buy-data", async (req, res) => {
       });
     }
 
-    // Deduct wallet AFTER success
+    // 💰 Deduct wallet AFTER success
     wallets[userId].balance -= plan.price;
 
     const receipt = {
@@ -137,7 +140,9 @@ app.post("/user/buy-data", async (req, res) => {
       network: plan.network,
       plan: plan.planName,
       amount: plan.price,
-      reference: smeplugRes.data.data?.reference || "N/A",
+      reference:
+        smeplugRes.data.data?.reference ||
+        "AADATASUB-" + Date.now(),
       date: new Date().toISOString()
     };
 
@@ -153,7 +158,10 @@ app.post("/user/buy-data", async (req, res) => {
     });
 
   } catch (error) {
-    console.error("❌ Buy data error:", error.response?.data || error.message);
+    console.error(
+      "❌ Buy data error:",
+      error.response?.data || error.message
+    );
     res.status(500).json({
       error: "Server error",
       details: error.response?.data || error.message
